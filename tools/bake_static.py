@@ -109,6 +109,14 @@ def main() -> None:
          "semantic_view": ""}))
     print("  overrode ask_status.json for the public build")
 
+    # demo.json carries the semantic view FQN for the on-screen scope note. In a
+    # public build Ask is disabled, so naming the object is useless to the reader
+    # and publishes an internal database path for no benefit.
+    demo = json.loads((OUT / "demo.json").read_text())
+    demo["semanticView"] = ""
+    (OUT / "demo.json").write_text(json.dumps(demo))
+    print("  stripped semanticView from demo.json")
+
     files = sorted(OUT.glob("*.json"))
     print(f"\n  {len(files)} files, {total / 1048576:.2f} MB total")
     big = sorted(files, key=lambda f: -f.stat().st_size)[:5]
