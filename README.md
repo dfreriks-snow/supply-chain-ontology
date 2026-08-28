@@ -12,6 +12,10 @@ natural language through Cortex Analyst.
   3 processes        19 ODM links       96% readiness
 ```
 
+**[Live demo →](https://dfreriks-snow.github.io/supply-chain-ontology/)**
+(credential-free static build; Ask and shortest path are disabled there — see
+[public static build](#public-static-build))
+
 ---
 
 ## Quick start
