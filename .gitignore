@@ -1,0 +1,17 @@
+# dependencies
+node_modules/
+
+# build output
+client/dist/
+client/dist-static/
+server/dist/
+*.tsbuildinfo
+
+# local config and logs — .env holds the Snowflake account, user and key path
+.env
+*.log
+
+# the baked snapshots MUST be committed: GitHub Pages builds from them
+!client/public/data/
+
+.DS_Store

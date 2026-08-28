@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+"""Snapshot the live API into client/public/data for the public static build.
+
+The GitHub Pages build has no server and no Snowflake credentials, so every view
+it can show has to be baked ahead of time. This walks the endpoints the client
+calls and writes one JSON file per call, using the same filename rule the client
+applies in static mode:
+
+    /products                -> products.json
+    /graph?processes=D2O     -> graph__processes=D2O.json
+
+Anything not baked here will surface in the UI as "not in this snapshot" rather
+than a blank page, so the set below is the contract for what the public build
+can do.
+
+Run the app first (npm run dev), then:  python3 tools/bake_static.py
+"""
+import json
+import pathlib
+import re
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+
+HOST = "http://localhost:3009"
+OUT = pathlib.Path(__file__).resolve().parent.parent / "client" / "public" / "data"
+
+# Traversal is baked per seed, so the public build offers expansion from the
+# most-connected entities only. Shortest path is not baked: it is O(n^2) pairs
+# and the client disables the control in static mode.
+HUB_COUNT = 24
+TRAVERSE_DEPTHS = (1, 2, 3)
+
+
+def fetch(path: str):
+    with urllib.request.urlopen(HOST + "/api" + path, timeout=60) as r:
+        return json.load(r)
+
+
+def name(path: str) -> str:
+    """Filename for a snapshot. Must stay identical to snapshotName() in
+    client/src/lib/api.ts.
+
+    Percent-escapes are folded to "-" because a literal "%3A" in a filename is
+    decoded back to ":" by the web server serving the build, so the browser's
+    request would never match the file written here."""
+    p, _, q = path.partition("?")
+    stem = p.lstrip("/").replace("/", "_")
+    if not q:
+        return f"{stem}.json"
+    safe = re.sub(r"[^A-Za-z0-9=&._-]", "-", q)
+    return f"{stem}__{safe}.json"
+
+
+def bake(path: str, data=None) -> int:
+    if data is None:
+        data = fetch(path)
+    f = OUT / name(path)
+    f.write_text(json.dumps(data))
+    return f.stat().st_size
+
+
+def main() -> None:
+    try:
+        fetch("/health")
+    except Exception as e:
+        sys.exit(f"server not reachable at {HOST} — start it with `npm run dev`\n  {e}")
+
+    OUT.mkdir(parents=True, exist_ok=True)
+    for old in OUT.glob("*.json"):
+        old.unlink()
+
+    total = 0
+    paths = ["/meta", "/products", "/processes", "/coverage", "/scorecard",
+             "/correlation", "/insight-apps", "/semantic-roles", "/lenses",
+             "/demo", "/topology", "/ask/status", "/ask/examples",
+             f"/hubs?limit={HUB_COUNT}", "/hubs?limit=30",
+             "/entities?q=&limit=400", "/entities?q=&limit=300", "/graph"]
+
+    # one graph per process, matching the sidebar's single-process filters
+    procs = [p["code"] for p in fetch("/processes")]
+    paths += [f"/graph?processes={c}" for c in procs]
+
+    for p in paths:
+        try:
+            total += bake(p)
+            print(f"  baked {name(p)}")
+        except urllib.error.HTTPError as e:
+            print(f"  SKIP  {name(p)} -> HTTP {e.code}")
+
+    # traversal snapshots from the hub set
+    hubs = fetch(f"/hubs?limit={HUB_COUNT}")
+    n = 0
+    for h in hubs:
+        for d in TRAVERSE_DEPTHS:
+            q = urllib.parse.urlencode({"seed": h["id"], "depth": d, "limit": 60})
+            try:
+                total += bake(f"/traverse?{q}")
+                n += 1
+            except urllib.error.HTTPError as e:
+                print(f"  SKIP  traverse {h['label']} d{d} -> HTTP {e.code}")
+    print(f"  baked {n} traversal snapshots from {len(hubs)} hubs")
+
+    # ask/status is rewritten so the public build reports Ask as unavailable
+    # rather than advertising a semantic view nobody can reach
+    (OUT / "ask_status.json").write_text(json.dumps(
+        {"ok": False, "missing": ["public build has no Snowflake connection"],
+         "semantic_view": ""}))
+    print("  overrode ask_status.json for the public build")
+
+    files = sorted(OUT.glob("*.json"))
+    print(f"\n  {len(files)} files, {total / 1048576:.2f} MB total")
+    big = sorted(files, key=lambda f: -f.stat().st_size)[:5]
+    print("  largest:")
+    for f in big:
+        print(f"     {f.name:44} {f.stat().st_size / 1024:8.1f} KB")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,222 @@
+# 5. Findings
+
+Things that were not obvious, cost real time, and are worth knowing before
+building something similar. Two are properties of the SAP data; two are Cortex
+Analyst behaviours.
+
+---
+
+## The graph is not what it looks like
+
+Building a traversal page implies a richly connected graph. Measuring it first
+was worth doing.
+
+### No entity association crosses a data product boundary
+
+**0 of 281.** Every declared association stays inside its own data product.
+
+The consequence is concrete: an entity-level shortest path **can never leave the
+product it starts in**. A page offering "find the path between any two entities"
+is overselling unless it says so.
+
+This was found while investigating why the demo panel showed
+`crossProduct: 0`. The first assumption was a filtering bug — the edge filter
+requires both endpoints in scope, so cross-product edges could plausibly have
+been dropped. Checking the parent ontology settled it:
+
+```
+parent edges              2376
+parent cross_product=True    0
+parent cross edges with BOTH endpoints in SC scope: 0
+parent cross edges with ONE  endpoint  in SC scope: 0
+```
+
+The parent has none either. The `EntityEdge.cross_product` flag exists in the
+data model and is **never set true**. Code that trusts it paints every edge as
+internal and is silently correct-looking.
+
+The fix was to derive it from the endpoints' owning products instead, and to
+report the real cross-product measures — `sum(cross_product_assoc)` = 92 across
+26 of 36 products, and 19 ODM-linked pairs.
+
+### The graph is 94 islands, not one graph
+
+| Measure | Value |
+|---|---|
+Entities | 338 |
+With at least one association | 269 |
+**Isolated (no associations at all)** | **69** |
+Connected components | 94 |
+Largest component | 14 |
+Component sizes | 14, 14, 12, 10, 10, 8, 6, 5, 4, 4, … |
+
+So "no path found" is a **correct and common answer**, not an error. The
+traversal service returns it with a reason rather than throwing, and depth
+sliders above 3 rarely change anything because the largest component is 14 nodes.
+
+### Cross-product linkage is a star centred on Plant
+
+At the product level, via the ODM overlay:
+
+| Measure | Value |
+|---|---|
+Products in the ODM graph | 20 of 36 |
+Components | 1 |
+`Plant` degree | **19** |
+Every other product's degree | **1** |
+Canonical objects doing the linking | **`Plant`, and only `Plant`** |
+
+Every path between two non-`Plant` products is exactly two hops, through
+`Plant`. That is not a rich graph — it is a genuine finding: **`Plant` is the
+master-data spine of the SAP supply chain**, and in this slice it is the *only*
+canonical object joining products.
+
+The Graph Traversal page states all of this on screen. Turning a limitation into
+the headline insight was better than hiding it behind a depth slider.
+
+---
+
+## The semantic view trap
+
+The single largest time sink. Three separate wrong conclusions before the right
+one — recorded in order, because the wrong turns are instructive.
+
+### Symptom
+
+`sv-generate` classified numeric columns as dimensions. Promoting them to facts
+via `remove_dimension` + `add_fact` reported **41 of 41 operations applied**, and
+`V_PRODUCT` came back with **7 facts instead of 10**. Three vanished with no
+error, and the paired `remove_dimension` had already run — so the columns were
+gone from the model entirely.
+
+### Wrong conclusion 1 — "logical name collision"
+
+The three missing facts shared logical names with facts on other tables, so the
+theory was that `add_fact` de-duplicates by name.
+
+**Disproved** by rebuilding with model-unique names
+(`SC_PRODUCT_ENTITY_COUNT` etc.). The same three dropped again.
+
+### Actual cause
+
+The three were exactly those whose **unqualified physical column name exists on
+more than one table** in the model:
+
+| Column | Also on |
+|---|---|
+`ENTITY_COUNT` | `V_PRODUCT`, `V_PROCESS_ROLLUP` |
+`ASSOCIATION_COUNT` | `V_PRODUCT`, `V_ENTITY` |
+`CROSS_PRODUCT_ASSOCIATIONS` | `V_PRODUCT`, `V_PROCESS_ROLLUP` |
+
+An ambiguous expression makes `add_fact` **drop the operation silently**.
+
+### Wrong conclusion 2 — "qualify the expression"
+
+Writing `V_PRODUCT.ENTITY_COUNT` made `sv-edit` accept all three, produced 10/10
+facts, validated clean, and deployed successfully.
+
+**It then failed every query.** Cortex Analyst does not query through
+`SEMANTIC_VIEW(...)` — it compiles the logical model into base-table SQL itself,
+aliasing each table as a CTE:
+
+```sql
+WITH __v_product AS (SELECT process_code FROM …V_PRODUCT)
+SELECT …
+```
+
+`V_PRODUCT.ENTITY_COUNT` is an invalid identifier inside `__v_product`. A model
+can validate, deploy, and be entirely broken.
+
+### The real answer
+
+Two changes:
+
+**1. Make the column names unique in the view.** `V_PRODUCT` projects explicit
+columns and renames the three to `PRODUCT_ENTITY_COUNT`,
+`PRODUCT_ASSOCIATION_COUNT`, `PRODUCT_CROSS_ASSOC`. With unique names,
+unqualified expressions work and nothing is dropped — 17 facts on the first pass.
+
+**2. Do not promote numerics to facts at all.** Even unambiguous and unqualified,
+facts still failed:
+
+```
+error: invalid identifier 'PRODUCT_ENTITY_COUNT'
+
+WITH __v_product AS (
+  SELECT product_label            -- fact column not projected
+  FROM SAP_BDC_ONTOLOGY.SUPPLY_CHAIN.V_PRODUCT
+)
+SELECT product_label,
+       product_entity_count       -- but referenced here
+FROM __v_product
+ORDER BY product_entity_count DESC
+```
+
+Analyst omits fact columns from the CTE projection while still referencing them
+in the outer `SELECT`. The identical fact resolves correctly in a hand-written
+`SEMANTIC_VIEW(… FACTS …)` query — so the model is fine and the generated SQL is
+not.
+
+**Dimensions are always projected.** So row-level numbers stay dimensions, and
+aggregates are exposed as metrics — which is exactly how `sv-generate` classified
+them before any of this. The final model is **2 facts, 12 metrics**, and 10 of 10
+example questions pass.
+
+### What made this findable
+
+The error response originally returned only a message. Attaching the generated
+SQL turned an opaque `invalid identifier` into an obvious diagnosis:
+
+```ts
+catch (e: any) {
+  const err: any = new Error(String(e?.message || e));
+  err.generatedSql = sql;
+  throw err;
+}
+```
+
+### Rules that came out of it
+
+1. Leave numeric columns as dimensions; expose aggregates as metrics.
+2. Make physical column names unique across the model's tables.
+3. Never qualify a fact expression with its table name.
+4. Count facts and metrics after every edit — success is not confirmation.
+5. Run the example questions before calling it done.
+6. Return the generated SQL on failure.
+
+---
+
+## Multi-path joins inflate aggregates
+
+`V_ENTITY` carries a denormalized `PROCESS_CODE`. Joining it to `V_PROCESS`
+alongside `V_PRODUCT → V_PROCESS` gives two paths to the same dimension, and
+aggregates inflate.
+
+The generator got this right unprompted — it built only
+`V_ENTITY → V_PRODUCT → V_PROCESS`. It is asserted after generation anyway, and
+the semantic description tells the model not to add the join back.
+
+---
+
+## Percent-escapes cannot be filenames
+
+The static baker used `urllib.parse.urlencode`, so entity IDs containing `::`
+produced filenames like `traverse__seed=…%3A%3A….json`. Every one 404'd.
+
+The web server decodes `%3A` to `:` on the way in and looks for a file with a
+literal colon. Both the baker and the client now fold unsafe characters to `-`
+using the identical rule, with a comment on each side saying they must match.
+
+Only reproducible **over HTTP** — the files were present and correct on disk.
+
+---
+
+## A shell quoting failure is not an app failure
+
+A test loop building JSON with a nested `python3 -c` one-liner reported
+`0 passed, 5 failed`. The outer shell had mangled the `:` characters, so the
+payload never formed.
+
+Rewriting the harness in Python gave the true result: 3 passed, 3 failed — which
+then led to the real bug. Worth confirming the harness works before trusting a
+red result.

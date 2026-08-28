@@ -1,0 +1,21 @@
+{
+  "name": "supply-chain-ontology-react",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w client && npm run build -w server",
+    "start": "npm run start -w server",
+    "export-data": "python3 tools/export_sc_ontology.py",
+    "deploy-views": "python3 tools/deploy_sc_views.py",
+    "bake": "python3 tools/bake_static.py",
+    "build:static": "cd client && VITE_STATIC=1 npx vite build --outDir dist-static",
+    "preview:static": "cd client/dist-static && python3 -m http.server 8899"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
