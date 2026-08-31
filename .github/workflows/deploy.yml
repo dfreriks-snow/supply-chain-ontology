@@ -10,6 +10,10 @@ on:
     paths:
       - "client/**"
       - ".github/workflows/deploy.yml"
+      # the build runs `npm ci`, so a dependency or workspace-name change can break
+      # it even when nothing under client/ moved — the lockfile must be watched too
+      - "package.json"
+      - "package-lock.json"
   workflow_dispatch:
 
 permissions:
