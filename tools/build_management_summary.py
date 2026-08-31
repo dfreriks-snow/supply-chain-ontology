@@ -11,160 +11,22 @@ Regenerate the inputs first (app must be running on :3009), then:
 """
 import datetime
 import json
-import re
 import pathlib
 import sys
 
 from docx import Document
-from docx.enum.section import WD_ORIENT
-from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml import OxmlElement
-from docx.oxml.ns import qn
-from docx.shared import Inches, Pt, RGBColor
+from docx.shared import Inches, Pt
 
-SNOW_BLUE = RGBColor(0x29, 0xB5, 0xE8)
-SAP_NAVY = RGBColor(0x1B, 0x3A, 0x57)
-GREY = RGBColor(0x5A, 0x6A, 0x7A)
-RED = RGBColor(0xC0, 0x28, 0x28)
-GREEN = RGBColor(0x1B, 0x7F, 0x4B)
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from docx_kit import (  # noqa: E402
+    GREY, SAP_NAVY, SNOW_BLUE,
+    body, bullet, h1, h2, money, setup_page, table,
+)
 
 OUT = pathlib.Path.home() / "Documents" / "SAP" / "Supply_Chain_Ontology_Management_Summary.docx"
 
 REPO = "https://github.com/dfreriks-snow/supply-chain-ontology"
 SITE = "https://dfreriks-snow.github.io/supply-chain-ontology/"
-
-
-# ---------------------------------------------------------------- docx helpers
-
-def _fixed(t, widths):
-    """Pin real column widths.
-
-    In fixed layout Word takes widths from w:tblGrid/w:gridCol and ignores w:tcW,
-    so setting cell width alone silently produces equal columns.
-    """
-    t.autofit = False
-    t.alignment = WD_TABLE_ALIGNMENT.LEFT
-    pr = t._tbl.tblPr
-    lay = OxmlElement("w:tblLayout")
-    lay.set(qn("w:type"), "fixed")
-    pr.append(lay)
-    grid = t._tbl.find(qn("w:tblGrid"))
-    cols = grid.findall(qn("w:gridCol"))
-    for col, wid in zip(cols, widths):
-        col.set(qn("w:w"), str(int(wid * 1440)))
-    for row in t.rows:
-        for cell, wid in zip(row.cells, widths):
-            cell.width = Inches(wid)
-
-
-def _no_split(row, header=False):
-    """Keep a row intact across a page break, and repeat header rows."""
-    pr = row._tr.get_or_add_trPr()
-    pr.append(OxmlElement("w:cantSplit"))
-    if header:
-        pr.append(OxmlElement("w:tblHeader"))
-
-
-def _shade(cell, hexcolor):
-    sh = OxmlElement("w:shd")
-    sh.set(qn("w:val"), "clear")
-    sh.set(qn("w:fill"), hexcolor)
-    cell._tc.get_or_add_tcPr().append(sh)
-
-
-def h1(doc, text):
-    p = doc.add_paragraph()
-    p.paragraph_format.keep_with_next = True
-    p.paragraph_format.space_before = Pt(18)
-    p.paragraph_format.space_after = Pt(6)
-    r = p.add_run(text)
-    r.font.size = Pt(15)
-    r.font.bold = True
-    r.font.color.rgb = SAP_NAVY
-    return p
-
-
-def h2(doc, text):
-    p = doc.add_paragraph()
-    p.paragraph_format.keep_with_next = True
-    p.paragraph_format.space_before = Pt(12)
-    p.paragraph_format.space_after = Pt(3)
-    r = p.add_run(text)
-    r.font.size = Pt(11.5)
-    r.font.bold = True
-    r.font.color.rgb = SAP_NAVY
-    return p
-
-
-def body(doc, text, size=10, italic=False, color=None, after=6):
-    p = doc.add_paragraph()
-    p.paragraph_format.space_after = Pt(after)
-    r = p.add_run(text)
-    r.font.size = Pt(size)
-    r.italic = italic
-    if color:
-        r.font.color.rgb = color
-    return p
-
-
-def bullet(doc, text, size=10, bold_lead=None):
-    p = doc.add_paragraph(style="List Bullet")
-    p.paragraph_format.space_after = Pt(3)
-    if bold_lead:
-        r = p.add_run(bold_lead)
-        r.font.size = Pt(size)
-        r.font.bold = True
-    r = p.add_run(text)
-    r.font.size = Pt(size)
-    return p
-
-
-def table(doc, headers, rows, widths, size=9, header_fill="1B3A57", align_right=()):
-    t = doc.add_table(rows=1, cols=len(headers))
-    t.style = "Table Grid"
-    hdr = t.rows[0]
-    for i, htext in enumerate(headers):
-        c = hdr.cells[i]
-        c.text = ""
-        p = c.paragraphs[0]
-        r = p.add_run(htext)
-        r.font.size = Pt(size)
-        r.font.bold = True
-        r.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
-        _shade(c, header_fill)
-    _no_split(hdr, header=True)
-
-    for row in rows:
-        cells = t.add_row()
-        _no_split(cells)
-        for i, val in enumerate(row):
-            c = cells.cells[i]
-            c.text = ""
-            p = c.paragraphs[0]
-            if i in align_right:
-                p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-            # Parse **bold** segments anywhere in the cell, not just a cell that is
-            # entirely wrapped — "**Real** — from SAP data" needs the lead bolded
-            # and the remainder plain, and a whole-cell test renders the asterisks.
-            for seg in re.split(r"(\*\*[^*]+\*\*)", str(val)):
-                if not seg:
-                    continue
-                r = p.add_run(seg.strip("*") if seg.startswith("**") else seg)
-                r.font.size = Pt(size)
-                r.font.bold = seg.startswith("**")
-    _fixed(t, widths)
-    doc.add_paragraph().paragraph_format.space_after = Pt(2)
-    return t
-
-
-def money(n):
-    n = float(n)
-    if abs(n) >= 1e6:
-        return f"${n/1e6:.2f}M"
-    if abs(n) >= 1e3:
-        return f"${n/1e3:.0f}K"
-    return f"${n:.0f}"
 
 
 # ------------------------------------------------------------------- the report
@@ -177,17 +39,7 @@ def main():
         sys.exit(f"missing input: {e}. Query the running app first.")
 
     doc = Document()
-    s = doc.sections[0]
-    s.orientation = WD_ORIENT.PORTRAIT
-    s.page_width, s.page_height = Inches(8.5), Inches(11)
-    for m in ("top_margin", "bottom_margin"):
-        setattr(s, m, Inches(0.7))
-    for m in ("left_margin", "right_margin"):
-        setattr(s, m, Inches(0.8))
-
-    st = doc.styles["Normal"]
-    st.font.name = "Calibri"
-    st.font.size = Pt(10)
+    setup_page(doc)
 
     # ---- title -----------------------------------------------------------
     p = doc.add_paragraph()
@@ -331,14 +183,10 @@ def main():
 
     body(doc,
          "Two results are worth drawing management attention to.", after=4)
-    bullet(doc,
-           "is entirely unrecoverable. Penang is the sole source of die sorting, so no amount of "
-           "capacity elsewhere helps. This is a structural exposure, not an operational one.",
-           bold_lead="A typhoon at Penang ")
-    bullet(doc,
-           "is only 44.7% recoverable despite being a partial outage, because Dresden has the "
-           "least spare capacity in the network and is sole source for e-beam review.",
-           bold_lead="A partial loss at Dresden ")
+    bullet(doc, "**A typhoon at Penang **is entirely unrecoverable. Penang is the sole source of die sorting, so no amount of "
+           "capacity elsewhere helps. This is a structural exposure, not an operational one.")
+    bullet(doc, "**A partial loss at Dresden **is only 44.7% recoverable despite being a partial outage, because Dresden has the "
+           "least spare capacity in the network and is sole source for e-beam review.")
 
     body(doc,
          f"Across the whole network, {len(nt['single_source_categories'])} of the product "
@@ -498,22 +346,14 @@ def main():
 
     # ---- next steps ------------------------------------------------------
     h1(doc, "Options from here")
-    bullet(doc,
-           "Use it as-is for customer conversations. It is deployed and needs no further work "
-           "to demonstrate.",
-           bold_lead="Demonstrate. ")
-    bullet(doc,
-           "Point the same engine at a customer's own SAP network. The scenario logic is "
-           "independent of this dataset.",
-           bold_lead="Extend to a live customer network. ")
-    bullet(doc,
-           "Add bill-of-materials explosion and lead times to move from planning-grade to "
-           "scheduling-grade accuracy.",
-           bold_lead="Deepen the model. ")
-    bullet(doc,
-           "The single-source analysis already identifies where a second source would remove "
-           "the most unrecoverable exposure. That is a costed investment case.",
-           bold_lead="Turn the findings into an investment case. ")
+    bullet(doc, "**Demonstrate. **Use it as-is for customer conversations. It is deployed and needs no further work "
+           "to demonstrate.")
+    bullet(doc, "**Extend to a live customer network. **Point the same engine at a customer's own SAP network. The scenario logic is "
+           "independent of this dataset.")
+    bullet(doc, "**Deepen the model. **Add bill-of-materials explosion and lead times to move from planning-grade to "
+           "scheduling-grade accuracy.")
+    bullet(doc, "**Turn the findings into an investment case. **The single-source analysis already identifies where a second source would remove "
+           "the most unrecoverable exposure. That is a costed investment case.")
 
     h1(doc, "Access")
     rows = [
