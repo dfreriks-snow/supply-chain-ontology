@@ -100,7 +100,7 @@ def main():
 
     table(doc, ["#", "Persona", "Opens on", "Lands the point that…", "Mins"], [
         ["1", "**Supply Chain Risk Manager**", "Scenario Studio",
-         "we can cost a disruption and its response before it happens", "8"],
+         "we can cost a disruption and its response before it happens", "9"],
         ["2", "VP Supply Chain / COO", "Scenario Studio → library",
          f"{sole_pct}% of flow has no alternative source at all", "6"],
         ["3", "CFO / FP&A", "Mitigation",
@@ -126,7 +126,7 @@ def main():
     # =======================================================================
     doc.add_page_break()
     persona_header(
-        doc, 1, "Supply Chain Risk Manager", 8, "Risk, resilience and S&OP leads",
+        doc, 1, "Supply Chain Risk Manager", 9, "Risk, resilience and S&OP leads",
         "Hurricane season starts in six weeks. What is our exposure, and what is the plan?")
 
     body(doc,
@@ -144,10 +144,14 @@ def main():
         ["3", "Scenario Studio", "Point at the **Exposed** and **Unmitigable** columns.",
          "“The columns are not sorted by size. They are sorted by what each one needs from "
          "me — watch, act, or pick up the phone.”"],
-        ["4", "Ripple Map", "Press **Play ripple**. Let it step. Do not talk over hop 2.",
-         "“Hop one is Austin's own customers. Then watch Penang.” "
-         "**Pause.** “Penang is in Malaysia. The hurricane is in Texas.”"],
-        ["5", "Ripple Map", "Click the **Penang** node.",
+        ["4", "Ripple Map", "Press **Play from the start**. It walks one lane per beat: "
+                             "1a, 1b, then 1c.",
+         "“1a and 1b are Austin's own customers — no surprise. Watch what 1c does.”"],
+        ["4b", "Ripple Map", "Let it land on **1c**, then pause. The map zooms out to the "
+                             "whole world on its own.",
+         "**Pause here.** “That lane goes to Penang. Penang is in Malaysia — the hurricane "
+         "is in Texas. The map just pulled back to show you why that matters.”"],
+        ["5", "Ripple Map", "Read the panel above the maps, then click the **Penang** node.",
          "“Austin ships Penang its test fixtures. Penang holds 12 days of stock, so it runs "
          "fine until day 13 and then starves — and takes TSMC and Texas Instruments down "
          "with it. That is the effect no spreadsheet catches.”"],
@@ -387,14 +391,14 @@ def main():
     beats(doc, [
         ["1", "Ripple Map", "Run the Austin hurricane, then scroll to the flows table.",
          "“Austin is closed by a hurricane. Four of my customers are affected.”"],
-        ["2", "Ripple Map", "Read the hop column as you name them.",
+        ["2", "Ripple Map", "Step to **1a** and **1b** as you name them.",
          f"“{by_cust[0]['customer']} and {by_cust[1]['customer']} are hop one — they buy from "
          f"Austin directly, no surprise there.”"],
-        ["3", "Ripple Map", "Point at the hop-2 rows. Slow down here.",
+        ["3", "Ripple Map", "Step to **2a** and **2b**. Slow down here.",
          f"“{by_cust[2]['customer']} and {by_cust[3]['customer']} are hop two. Neither buys "
          f"anything from Austin. They buy from Penang — and Penang depends on Austin. "
          f"Without this I would not have called them.”"],
-        ["4", "Ripple Map", "Click Penang and show the 12-day buffer.",
+        ["4", "Ripple Map", "Click Penang and read the buffer line in the step panel.",
          "“And I know the timing. Penang holds 12 days of stock, so those two accounts are "
          "fine for a fortnight. That changes whether I call today or next week.”"],
         ["5", "Mitigation", "Show which customers the reroutes protect.",

@@ -396,9 +396,10 @@ export default function Demo({ onNavigate }: { onNavigate?: (p: PageId) => void 
               ]} />}
               {step.id === "ripple" && <Steps items={[
                 { n: 1, text: "Go to Ripple Map." },
-                { n: 2, text: "Press Play ripple and do not narrate over hop 2.",
-                  note: "Penang appearing is the moment the point lands." },
-                { n: 3, text: "Use the hop chips to step back and forth manually." },
+                { n: 2, text: "Press Play from the start. It walks one lane at a time.",
+                  note: "Beats are lettered — 1a, 1b, 1c, then 2a, 2b." },
+                { n: 3, text: "Stop on 1c. That is the inter-plant lane that causes hop 2.",
+                  note: "The camera pulls out to the whole world here, because the chain jumps to Malaysia." },
               ]} />}
               {step.id === "buffer" && <Steps items={[
                 { n: 1, text: "Click the Penang node on either panel." },

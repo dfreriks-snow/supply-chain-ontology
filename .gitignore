@@ -7,6 +7,10 @@ client/dist-static/
 server/dist/
 *.tsbuildinfo
 
+# python bytecode — docx_kit is imported by the doc generators
+__pycache__/
+*.pyc
+
 # local config and logs — .env holds the Snowflake account, user and key path
 .env
 *.log

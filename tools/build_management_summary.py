@@ -261,12 +261,14 @@ def main():
          f"{money(16_051_035)}, {hur['pctOfNetwork']}% of the network.",
          "1 min"],
         ["3", "Ripple Map",
-         "Press Play. The cascade steps outward hop by hop on the map and the network graph "
-         "together. Penang lighting up on the second hop is the moment the room understands "
-         "the point.",
+         "Press Play from the start. The cascade walks one lane at a time — 1a, 1b, 1c — "
+         "on the map and the network graph together, and the camera follows each beat. "
+         "Stop on 1c: it is the lane to Penang, and the map pulls out to the whole world "
+         "because the chain has just jumped to Malaysia.",
          "2 min"],
         ["4", "Ripple Map",
-         "Click Penang. Show that its 12 days of stock is why it fails on day 13, not day 1.",
+         "Click Penang. The step panel already says it: 12 days of stock, so it fails on "
+         "day 13, not day 1.",
          "1 min"],
         ["5", "Mitigation",
          "Show the two feasible reroutes, and that they consume San Jose's spare capacity "
