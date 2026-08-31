@@ -4,6 +4,7 @@ import {
   DEFAULT_DISRUPTION, KIND_HINT, KIND_LABEL, useNetwork, useScenario,
 } from "../hooks/useScenario";
 import { money, pct } from "../lib/severity";
+import { STATIC } from "../lib/api";
 import type { Disruption, DisruptionKind } from "../lib/api";
 
 /**
@@ -110,6 +111,16 @@ export default function ScenarioStudio() {
           Could not load the network: {netError}
           <div className="mt-1 text-xs">Run <code>npm run export-network</code> to rebuild
             <code className="ml-1">data/sc_network.json</code>.</div>
+        </div>
+      )}
+
+      {STATIC && (
+        <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-2.5 text-xs
+                        leading-relaxed text-slate-700">
+          <b>Public build.</b> The six preset scenarios below are pre-computed and fully
+          explorable, including the ripple animation and the mitigation plan. Building a
+          custom disruption with the sliders needs the live app — the simulation runs
+          server-side.
         </div>
       )}
 

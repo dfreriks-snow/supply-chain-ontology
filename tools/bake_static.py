@@ -38,6 +38,19 @@ def fetch(path: str):
         return json.load(r)
 
 
+def sim_name(d: dict) -> str:
+    """Filename for a baked simulate result.
+
+    Must stay identical to simName() in client/src/lib/api.ts. Built from the
+    disruption's own fields rather than a hash so a mismatch is debuggable by
+    reading the filename.
+    """
+    t = "-".join(sorted(d["targets"]))
+    key = (f"scenario_sim__{d['kind']}__{t}__"
+           f"{int(round(float(d['severity']) * 100))}__{int(d['durationDays'])}")
+    return re.sub(r"[^A-Za-z0-9=&._-]", "-", key)
+
+
 def name(path: str) -> str:
     """Filename for a snapshot. Must stay identical to snapshotName() in
     client/src/lib/api.ts.
@@ -76,7 +89,9 @@ def main() -> None:
              "/correlation", "/insight-apps", "/semantic-roles", "/lenses",
              "/demo", "/topology", "/ask/status", "/ask/examples",
              f"/hubs?limit={HUB_COUNT}", "/hubs?limit=30",
-             "/entities?q=&limit=400", "/entities?q=&limit=300", "/graph"]
+             "/entities?q=&limit=400", "/entities?q=&limit=300", "/graph",
+             # the scenario pages need the network and the preset list
+             "/scenario/network", "/scenario/presets", "/scenario/reasoning/status"]
 
     # one graph per process, matching the sidebar's single-process filters
     procs = [p["code"] for p in fetch("/processes")]
@@ -101,6 +116,38 @@ def main() -> None:
             except urllib.error.HTTPError as e:
                 print(f"  SKIP  traverse {h['label']} d{d} -> HTTP {e.code}")
     print(f"  baked {n} traversal snapshots from {len(hubs)} hubs")
+
+    # Scenario results come from POST /scenario/simulate, which a static site cannot
+    # call. Bake one result per preset instead, keyed by a signature of the
+    # disruption so the client can look the same key up. Custom slider combinations
+    # are therefore unavailable in the public build, and the UI says so rather than
+    # failing with a confusing error.
+    presets = fetch("/scenario/presets")
+    n_sim = 0
+    for pr in presets:
+        body = {k: pr[k] for k in ("kind", "targets", "severity", "durationDays")}
+        body["label"] = pr.get("label", pr["id"])
+        req = urllib.request.Request(
+            HOST + "/api/scenario/simulate",
+            data=json.dumps(body).encode(),
+            headers={"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                data = json.load(r)
+        except urllib.error.HTTPError as e:
+            print(f"  SKIP  simulate {pr['id']} -> HTTP {e.code}")
+            continue
+        f = OUT / f"{sim_name(body)}.json"
+        f.write_text(json.dumps(data))
+        total += f.stat().st_size
+        n_sim += 1
+    print(f"  baked {n_sim} scenario result(s) for {len(presets)} preset(s)")
+
+    # The scenario AI needs Snowflake, so report it unavailable rather than
+    # advertising a model nobody can reach.
+    (OUT / "scenario_reasoning_status.json").write_text(json.dumps(
+        {"ok": False, "missing": ["public build has no Snowflake connection"]}))
+    print("  overrode scenario_reasoning_status.json")
 
     # ask/status is rewritten so the public build reports Ask as unavailable
     # rather than advertising a semantic view nobody can reach

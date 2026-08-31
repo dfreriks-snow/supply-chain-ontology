@@ -267,8 +267,8 @@ export default function Mitigation() {
           </div>
           <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-600">
             The briefing and the follow-up agent call Cortex, which needs Snowflake
-            credentials. Everything above is computed by the optimizer and works here
-            without them.
+            credentials. Everything above — the ripple, the reroutes, what cannot be
+            saved — is computed by the optimizer and works here without them.
           </p>
         </div>
       ) : (

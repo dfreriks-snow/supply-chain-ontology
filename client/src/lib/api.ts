@@ -72,10 +72,33 @@ function gq(o: GraphOpts): string {
   return s ? `?${s}` : "";
 }
 
+/**
+ * Filename for a baked simulate result. Must stay identical to sim_name() in
+ * tools/bake_static.py — built from the disruption's fields rather than a hash so
+ * a mismatch can be diagnosed by reading the filename.
+ */
+function simName(d: Disruption): string {
+  const t = [...d.targets].sort().join("-");
+  const key = `scenario_sim__${d.kind}__${t}__` +
+              `${Math.round(d.severity * 100)}__${Math.round(d.durationDays)}`;
+  return key.replace(/[^A-Za-z0-9=&._-]/g, "-");
+}
+
+/** Read a baked simulate result in static mode. */
+async function staticSim<T>(d: Disruption): Promise<T> {
+  const res = await fetch(`${SNAP}/${simName(d)}.json`);
+  if (!res.ok) {
+    throw new Error(
+      "This public build ships results for the six preset scenarios only. " +
+      "Pick a preset, or run the app locally to build your own.");
+  }
+  return res.json() as Promise<T>;
+}
+
 async function post<T>(pathname: string, body: unknown): Promise<T> {
   if (STATIC) {
     throw new Error(
-      "Ask needs a live Snowflake connection and is disabled in the public build");
+      "This needs a live Snowflake connection and is disabled in the public build");
   }
   const res = await fetch(`${BASE}${pathname}`, {
     method: "POST",
@@ -262,7 +285,8 @@ export const api = {
 
   scNetwork: () => get<ScNetwork>("/scenario/network"),
   scPresets: () => get<Preset[]>("/scenario/presets"),
-  scSimulate: (d: Disruption) => post<SimulateResponse>("/scenario/simulate", d),
+  scSimulate: (d: Disruption) =>
+    STATIC ? staticSim<SimulateResponse>(d) : post<SimulateResponse>("/scenario/simulate", d),
   scReasoningStatus: () => get<{ ok: boolean; missing: string[] }>("/scenario/reasoning/status"),
   scExplain: (d: Disruption) => post<{ text: string }>("/scenario/explain", d),
   scAsk: (d: Disruption, question: string, history: { role: string; text: string }[]) =>
