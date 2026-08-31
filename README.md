@@ -60,10 +60,31 @@ PORT=3009
 | Correlation | Process coupling via the ODM master-data overlay |
 | Coverage & Scorecard | Readiness scoring across the slice |
 | Ask the Ontology | Cortex Analyst over the supply-chain semantic view |
-| Guided Demo | Five-step walkthrough, figures read live from the ontology |
-Scenario Studio | Build a disruption and see it bucketed by the response it needs |
-Ripple Map | Geography and topology side by side, synced, with step animation |
-Mitigation | Reroutes inside real capacity, what cannot be saved, and an AI you can interrogate |
+| Guided Demo | Seven-step walkthrough of the hurricane scenario, with click targets pinned on live components |
+| **Scenario Studio** | Build a disruption from five event types; results bucketed by the response each needs |
+| **Ripple Map** | Geography and topology side by side, selection synced, cascade stepped hop by hop |
+| **Mitigation** | Reroutes inside real capacity, what cannot be saved and why, plus an AI you can interrogate |
+
+---
+
+## Briefing documents
+
+Two Word deliverables are generated from the running application, so their figures
+cannot drift from what it actually reports:
+
+```bash
+npm run dev                              # the generators query the live API
+python3 tools/build_management_summary.py # executive briefing
+python3 tools/build_demo_scripts.py       # six per-persona demo scripts
+```
+
+| Document | Contents |
+|---|---|
+`Supply_Chain_Ontology_Management_Summary.docx` | 11 sections: exposure, scenario library, personas, a recommended showcase, and an explicit real-versus-modelled table |
+`Supply_Chain_Ontology_Demo_Scripts.docx` | Six standalone scripts — Risk Manager, VP/COO, CFO, Plant Manager, Account Director, Architect — each with an action/say table, the numbers to land, a closing line and expected questions |
+
+Both write to `~/Documents/SAP/`. Layout helpers live in `tools/docx_kit.py`, shared
+by both generators so they cannot drift apart in styling.
 
 ---
 

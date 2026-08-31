@@ -128,22 +128,56 @@ Two additions this project needed:
 `Copy of Copy of AI309_FINAL_SUMMIT_0602_ExternalShare.pptx` plus
 `supply_chain_ontology_agent_demo_slide.html`. Not public; held locally.
 
-Supplied the five-step structure of the Guided Demo page: the problem
-("same supplier, three systems, three different IDs, no links between them"),
-the solution, why ontology (polymorphic queries, graph traversal, identity
-resolution), and "not a chatbot — a reasoning engine".
+Supplied the framing the Guided Demo was originally built on: the problem ("same
+supplier, three systems, three different IDs, no links between them"), the solution,
+why ontology (polymorphic queries, graph traversal, identity resolution), and "not a
+chatbot — a reasoning engine".
 
-The argument is kept. The **figures are read live** from `/api/demo` rather than
-transcribed, so the walkthrough cannot quote numbers that have drifted from the
-ontology being served.
+The deck's argument survives in the page's copy, but the page itself has since been
+rebuilt: it is now a **seven-step walkthrough of the hurricane scenario** with live
+components and pinned click targets, rather than five narrative panels. The abstract
+version explained why ontologies matter without showing anyone what to click.
+
+Figures are read live from the API rather than transcribed, so the walkthrough cannot
+quote numbers that have drifted from what is being served.
 
 ---
+
+---
+
+## Visualization guidance
+
+The scenario views follow published supply-chain visualization practice rather than
+invented conventions. Each source contributed specific techniques, listed in
+[scenario modelling](07-scenario-modelling.md#visualization).
+
+| Source | Contributed |
+|---|---|
+[Cambridge Intelligence — supply chain use cases](https://cambridge-intelligence.com/use-cases/supply-chain/) | Combining network, timeline and geospatial views; tracing an issue back to source and forward to who else is at risk — structurally the same problem as an outbound ripple |
+[Creately — supply chain visualization guide](https://creately.com/guides/supply-chain-visualization/) | Dependency and flow diagrams, geographic overlays, critical-path highlighting, and the warning that a heat-map scale must be calibrated to the data range rather than fixed thresholds |
+[Ventagium — 5 ways to visualize supply chain processes, part 1](https://www.ventagium.com/blog/5-ways-to-visualize-your-supply-chain-processes-part-1) | Bullet charts, and the explicit warning **against gauges and pie charts** because radial angle encoding is read less accurately than length |
+[Ventagium — part 2](https://www.ventagium.com/blog/5-ways-to-visualize-your-supply-chain-processes-part-2) | The staged action pipeline as a leading indicator, and normal-versus-rerouted path styling |
+[PuppyGraph — supply chain graph](https://www.puppygraph.com/blog/supply-chain-graph) | Dependency graphs surfacing non-obvious single points of failure, and hop-distance reasoning over a graph |
+
+Two pieces of guidance were followed against instinct and are worth restating:
+
+- **No gauges anywhere.** Capacity headroom is exactly the number that must not be
+  misread, so it is a bullet chart against a reference band in every view.
+- **Process behaviour charts were left out.** The source recommends them for
+  drill-down only and says they clutter a primary view. At 27 flows they would have.
+
+Techniques not drawn from these sources — the step animation of hop propagation, and
+encoding reroute hours as a cost signal — are marked as such rather than attributed.
 
 ## Snowflake platform
 
 - **Cortex Analyst** — natural-language querying over the semantic view. Its
   SQL-generation behaviour drove the most consequential design decision here; see
   [findings](05-findings.md#the-semantic-view-trap).
+- **`AI_COMPLETE`** (`claude-4-sonnet`) — the scenario narrative and what-if channel.
+  Chosen over Analyst deliberately: a simulated ripple exists only in memory, so
+  Analyst would query the undisrupted network and answer the wrong question. The
+  deprecated `SNOWFLAKE.CORTEX.COMPLETE` form is not used.
 - **`cortex agent-studio` CLI** — `sv-generate`, `sv-write`, `sv-edit`,
   `sv-deploy`. The `.sv.yaml` is never hand-edited.
 - **Snowflake semantic views** — facts, dimensions, metrics, relationships,

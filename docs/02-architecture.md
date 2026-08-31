@@ -34,6 +34,30 @@ data/sc_ontology.json          36 products · 338 entities · 281 associations
              Cortex Analyst ──▶ "Ask the Ontology" page
 ```
 
+The scenario layer is a second, parallel path over different source data. It shares
+the app shell and nothing else, because the ontology cannot model ripple effects —
+see [scenario modelling](07-scenario-modelling.md#why-this-needed-a-different-data-foundation).
+
+```
+SAP_SUPPLY_CHAIN  (plants, flows, capacity, stock, BOM)
+        │
+        ▼
+tools/deploy_scenario_views.py ──▶ SAP_SUPPLY_CHAIN.SCENARIO   5 views
+        │
+        ▼
+tools/export_scenario_network.py ──▶ data/sc_network.json   19 nodes · 27 flows
+        │
+        ├──▶ services/scenario.ts   propagation (in-process, microseconds)
+        │            │
+        │            ▼
+        │    services/mitigate.ts   greedy reroute inside capacity limits
+        │            │
+        │            ▼
+        │    services/reason.ts ──▶ AI_COMPLETE   narrative and what-ifs
+        │
+        └──▶ Scenario Studio · Ripple Map · Mitigation · Guided Demo
+```
+
 ---
 
 ## Reuse the parent's derivations, do not copy its numbers
@@ -164,7 +188,10 @@ An npm workspace with two packages.
 `services/ontology.ts` | Loads and caches `data/sc_ontology.json`; builds graph elements |
 `services/traverse.ts` | Adjacency, BFS expansion, shortest path, topology |
 `services/analyst.ts` | JWT (RS256) → Cortex Analyst REST → executes returned SQL |
-`routes/api.ts` | 19 endpoints |
+`services/scenario.ts` | Network load, disruption propagation, hop rollup, topology |
+`services/mitigate.ts` | Reroute allocation against capacity, three blocked reasons |
+`services/reason.ts` | Scenario brief for `AI_COMPLETE`, plus what-if interrogation |
+`routes/api.ts` | 26 endpoints |
 
 Traversal runs **in-process**. The whole graph is 338 nodes and 281 undirected
 edges — small enough that a warehouse round-trip per click would add latency for
@@ -191,8 +218,27 @@ made the fact bug in [findings](05-findings.md) findable at all.
 
 ### Client — React + Vite + Cytoscape, port 5179
 
-Nine pages: Overview, Ontology Graph, Graph Traversal, Business Processes, Use
-Cases, Correlation, Coverage & Scorecard, Ask the Ontology, Guided Demo.
+Twelve pages. Nine cover the ontology; three cover scenarios (Scenario Studio,
+Ripple Map, Mitigation), and the Guided Demo walks the scenario end to end.
+
+| Module | Responsibility |
+|---|---|
+`lib/severity.ts` | The single severity scale, shared by map and graph so they agree |
+`components/WorldMap.tsx` | Hand-rolled SVG projection, Bezier flow arcs, reroute overlay |
+`components/RippleGraph.tsx` | Cytoscape topology with hop rings and SPOF halos |
+`components/ScenarioCharts.tsx` | Bullet charts, staged action pipeline, flow comparison |
+`components/Walkthrough.tsx` | Screen frames and annotation pins for the Guided Demo |
+`hooks/useScenario.ts` | Module-level scenario store, so a run survives navigation |
+
+Scenario state lives in a module-level store rather than React context: running a
+disruption in the Studio and losing it on the way to the Ripple Map would make the
+section unusable, and threading context through the switch-based router would mean
+rewriting the shell for one feature.
+
+The Guided Demo embeds the real components rather than screenshots. Screenshots
+would show the surrounding chrome, but every figure here changes when the catalog
+is re-sliced, so a capture would be wrong within a release and nobody would
+notice.
 
 ---
 
@@ -205,7 +251,8 @@ Flag | default | `VITE_STATIC=1` |
 Ask | works | disabled, with an on-screen explanation |
 Shortest path | works | hidden — the pair space is quadratic |
 Traversal | any entity, depth 1–4 | 24 hub entities, depths 1–3 |
-Needs credentials | yes, for Ask only | no |
+Scenario pages | full | not baked — the API computes them per request |
+Needs credentials | yes, for Ask and the scenario AI only | no |
 
 The static build exists so the work can be shared without handing out Snowflake
 access. Both modes call the same `api.ts` methods; only the transport differs.

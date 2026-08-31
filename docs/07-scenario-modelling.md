@@ -189,7 +189,8 @@ Dashed overlay for reroutes as *new* lanes | both views |
 Staged action pipeline by required response | Scenario Studio |
 Bullet charts for capacity and buffer | Studio, Mitigation |
 Before/after flow comparison | Mitigation |
-Step animation of the cascade | Ripple Map, "Play ripple" |
+Step animation of the cascade | Ripple Map, "Play ripple"; auto-plays in the Guided Demo |
+Annotation pins on click targets | Guided Demo |
 
 **Gauges and pie charts are avoided deliberately** — the Ventagium guidance is
 explicit that radial angle encoding is read less accurately than length, and
@@ -212,7 +213,14 @@ npm run dev
 ```
 
 Pages: **Scenario Studio** (build and run), **Ripple Map** (both views, synced
-selection, step animation), **Mitigation** (plan, before/after, AI).
+selection, step animation), **Mitigation** (plan, before/after, AI), and the
+**Guided Demo**, which walks the hurricane end to end in seven annotated steps.
+
+The Guided Demo embeds the real components with numbered pins on the click targets,
+a per-step action list, the one number each step should leave behind, and a button
+that navigates to the live page. It uses live components rather than screenshots
+because every figure changes when the network is re-exported — a capture would be
+wrong within a release and nobody would notice.
 
 The engine runs in-process — 19 nodes and 27 flows simulate in microseconds, so
 the UI re-runs on every slider movement. A warehouse round-trip per keystroke

@@ -283,3 +283,43 @@ months, the other needs a different scenario response today. Reporting them unde
 one label would have sent the reader down the wrong path with correct numbers.
 
 There are now three reasons, and the plan text differs for each.
+
+---
+
+## npm install forgives what npm ci refuses
+
+The client and server packages were renamed when this app was forked from the parent
+explorer. The lockfile kept the old names. Every local build passed for weeks, and
+the GitHub Pages deploy failed in twelve seconds:
+
+```
+npm error code EUSAGE
+npm error `npm ci` can only install packages when your package.json and
+          package-lock.json are in sync
+npm error Missing: supply-chain-ontology-client@ from lock file
+```
+
+`npm install` reconciles a divergent lockfile silently as a side effect of running.
+`npm ci` treats the same divergence as fatal, by design — that is the point of it.
+So the failure could only ever appear in CI, and only after the rename had been
+invisible locally for as long as nobody ran a clean install.
+
+**Lesson:** a build that passes locally and fails in CI is usually not a CI problem.
+It is a local step quietly repairing something. `rm -rf node_modules && npm ci` in a
+scratch copy reproduces it in seconds.
+
+---
+
+## The fix for a broken build did not rebuild
+
+Having regenerated the lockfile, the deploy stayed red. The workflow's `paths`
+filter watched `client/**` and the workflow file — but not `package-lock.json`. The
+commit that fixed the build therefore triggered nothing, and the last run on record
+was still the failing one.
+
+The filter now includes `package.json` and `package-lock.json`.
+
+**Lesson:** a `paths` filter has to cover every input the job actually consumes. This
+one ran `npm ci` while ignoring the file `npm ci` reads. It also produced a
+particularly misleading state — a repository where the newest commit was the fix and
+the newest *run* was the failure.

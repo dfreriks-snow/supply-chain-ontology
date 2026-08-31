@@ -13,10 +13,14 @@ npm install
 npm run dev
 ```
 
-Open <http://localhost:5179>. Eight of the nine pages work immediately from the
-committed `data/sc_ontology.json` — no Snowflake connection needed.
+Open <http://localhost:5179>. Eleven of the twelve pages work immediately from the
+two committed data files — `data/sc_ontology.json` for the ontology pages and
+`data/sc_network.json` for the scenario pages. No Snowflake connection is needed for
+any of them.
 
-Only **Ask the Ontology** needs credentials:
+Two things need credentials: **Ask the Ontology** (Cortex Analyst) and the **AI
+briefing** on the Mitigation page (`AI_COMPLETE`). Both state what is missing rather
+than failing silently, and the scenario simulation and optimizer work without them.
 
 ```bash
 cp server/.env.example server/.env
@@ -41,9 +45,25 @@ than failing silently.
 `npm run bake` | Snapshot the live API to `client/public/data/` |
 `npm run build:static` | Build the credential-free public bundle |
 `npm run preview:static` | Serve that bundle on :8899 |
+`npm run deploy-scenario` | Create `SAP_SUPPLY_CHAIN.SCENARIO`, verify row counts and join fanout |
+`npm run export-network` | Export the scenario network to `data/sc_network.json` |
+`npm run build-land` | Fetch and convert the world land outline (run once) |
+`npm run verify-scenario` | Build the server, then assert 20 checks across all five disruption kinds |
 
 `export-data` needs the [parent explorer](06-references.md#parent-project) as a
 sibling directory — it imports `ontology_builder` rather than duplicating it.
+
+Two Word deliverables are generated separately, and both read from the running app
+so their figures cannot be transcribed wrongly:
+
+```bash
+python3 tools/build_management_summary.py   # executive briefing
+python3 tools/build_demo_scripts.py        # six per-persona demo scripts
+```
+
+Layout helpers are in `tools/docx_kit.py`, shared by both. When changing it, check
+the other document still renders — the management summary was verified byte-identical
+across the extraction, and that check is worth repeating.
 
 ---
 
@@ -76,6 +96,18 @@ exits non-zero, and the run stops before a mismatched semantic view can go out.
 
 If product or entity counts change, the figures quoted in these docs and in the
 README go stale. The app reads them live; the prose does not.
+
+The scenario network refreshes independently, since it comes from different tables:
+
+```bash
+npm run deploy-scenario   # rebuild the SCENARIO views
+npm run export-network    # re-export the served network
+npm run verify-scenario   # 20 assertions before trusting it
+```
+
+Run `verify-scenario` after **any** change to `scenario.ts` or `mitigate.ts`. It is
+what caught a rate mismatch and a silently zero-valued lane closure; see
+[findings](05-findings.md#the-rate-mismatch).
 
 ---
 
@@ -165,3 +197,16 @@ the rule, do not weaken the check.
 **Shortest path always says "no path"** — expected between different components.
 The graph is 94 components; see
 [findings](05-findings.md#the-graph-is-not-what-it-looks-like).
+
+**A scenario reports $0 at risk** — check it is not a lane closure, and re-run
+`npm run verify-scenario`. A zero is indistinguishable from good news, so the
+harness asserts non-zero where non-zero is structurally certain.
+
+**The scenario AI errors with "unknown model"** — `SCENARIO_LLM_MODEL` names a model
+this account does not serve. Probe with
+`SELECT AI_COMPLETE('claude-4-sonnet', 'ok')` and set the variable accordingly.
+
+**Pages deploys fail on `npm ci` but local builds pass** — the lockfile and the
+workspace names have diverged. `npm install` repairs that silently; `npm ci` refuses
+to. Run `npm install`, commit the lockfile. See
+[findings](05-findings.md#npm-install-forgives-what-npm-ci-refuses).

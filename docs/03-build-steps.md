@@ -212,3 +212,30 @@ Static | 93 snapshots served over HTTP |
 Endpoints responding is not the same as answers being right. Both were checked
 separately, and the Ask check is what exposed the fact bug — the model had
 already validated and deployed clean.
+
+---
+
+## Step 9 — the scenario layer
+
+The steps above build the ontology explorer. Disruption scenario modelling was
+added afterwards, on a **different data foundation**, and has its own build
+sequence:
+
+```bash
+npm run deploy-scenario   # SAP_SUPPLY_CHAIN.SCENARIO — 5 views
+npm run export-network    # data/sc_network.json — 19 nodes, 27 flows
+npm run build-land        # client/public/land.geo.json — once only
+npm run verify-scenario   # 20 assertions across all five disruption kinds
+```
+
+Full detail, including the propagation model, the optimizer and the visualization
+choices, is in [scenario modelling](07-scenario-modelling.md).
+
+Two things to know before starting it:
+
+- The BDC catalog ontology **cannot** model ripple effects — it is metadata about
+  data products, with no plants, flows or inventory. Attempting it there is the
+  first wrong turn available.
+- Run `verify-scenario` before trusting any figure. It caught a unit-rate mismatch
+  and a lane closure that silently reported zero exposure, and both looked entirely
+  plausible on screen.
