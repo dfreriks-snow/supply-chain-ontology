@@ -44,7 +44,7 @@ export default function App() {
       case "correlation": return <Correlation />;
       case "coverage": return <Coverage />;
       case "ask": return <Ask />;
-      case "demo": return <Demo />;
+      case "demo": return <Demo onNavigate={setPage} />;
       case "scenario": return <ScenarioStudio />;
       case "ripple": return <RippleMap />;
       case "mitigation": return <Mitigation />;
