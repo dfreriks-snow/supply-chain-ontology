@@ -27,6 +27,8 @@ export interface RippleGraphProps {
   impaired?: Map<string, ImpairedNode>;
   reroutes?: Reroute[];
   revealHop?: number;
+  /** Flow ids to spotlight. Everything else drops back, matching the map. */
+  highlightFlows?: Set<string>;
   selected?: string | null;
   onSelect?: (id: string | null) => void;
   /** Node ids that are a single point of failure, badged on the graph. */
@@ -38,8 +40,9 @@ const COLUMN: Record<string, number> = { Supplier: 0, Plant: 1, Customer: 2 };
 
 export function RippleGraph({
   nodes, flows, affected, impaired, reroutes,
-  revealHop, selected, onSelect, spof, height = 460,
+  revealHop, highlightFlows, selected, onSelect, spof, height = 460,
 }: RippleGraphProps) {
+  const spotlight = highlightFlows && highlightFlows.size > 0;
   const cyRef = useRef<cytoscape.Core | null>(null);
   const maxVol = useMemo(() => Math.max(1, ...flows.map((f) => f.monthly_volume)), [flows]);
   const show = (hop: number) => revealHop === undefined || hop <= revealHop;
@@ -84,13 +87,14 @@ export function RippleGraph({
       const a = affected?.get(f.flow_id);
       const visible = !a || show(a.hop);
       const hit = !!(a && visible);
+      const lit = !spotlight || highlightFlows!.has(f.flow_id);
       els.push({
         data: {
           id: f.flow_id, source: f.source_id, target: f.target_id,
           label: f.material_category,
           color: hit ? severityColor(a!.impactFactor) : "#94a3b8",
-          width: edgeWidth(f.monthly_volume, maxVol, 1, 7) + (hit ? 1 : 0),
-          opacity: hit ? 1 : 0.35,
+          width: edgeWidth(f.monthly_volume, maxVol, 1, 7) + (hit && lit ? 3 : hit ? 1 : 0),
+          opacity: hit ? (lit ? 1 : 0.2) : spotlight ? 0.12 : 0.35,
           cls: "flow",
         },
       });
@@ -112,7 +116,8 @@ export function RippleGraph({
       });
     }
     return els;
-  }, [nodes, flows, affected, impaired, reroutes, revealHop, spof, maxVol]);
+  }, [nodes, flows, affected, impaired, reroutes, revealHop, spof, maxVol,
+      highlightFlows, spotlight]);
 
   useEffect(() => {
     const cy = cyRef.current;

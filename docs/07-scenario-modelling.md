@@ -189,7 +189,8 @@ Dashed overlay for reroutes as *new* lanes | both views |
 Staged action pipeline by required response | Scenario Studio |
 Bullet charts for capacity and buffer | Studio, Mitigation |
 Before/after flow comparison | Mitigation |
-Step animation of the cascade | Ripple Map, "Play ripple"; auto-plays in the Guided Demo |
+Step animation of the cascade | Ripple Map, lettered sub-steps; auto-plays in the Guided Demo |
+Camera framing per beat | Ripple Map, "follow with zoom" |
 Annotation pins on click targets | Guided Demo |
 
 **Gauges and pie charts are avoided deliberately** — the Ventagium guidance is
@@ -199,6 +200,65 @@ capacity headroom must not be misread. Bullet charts everywhere instead.
 The map is hand-rolled SVG over a committed 68 KB land outline. Nineteen pins and
 27 arcs do not justify a tile layer or a projection library, and hand-rolling
 keeps the arc geometry under control for the reroute overlay.
+
+---
+
+## Playing the ripple as sub-steps
+
+A hop reveals every flow at that distance at once. That is faithful to the model
+and hard to follow — three arcs light up together and the viewer cannot tell which
+one causes the next hop.
+
+The Ripple Map therefore splits each hop into lettered beats, one lane each:
+
+```
+start   Austin Fab disrupted 100% for 60 days (42-day buffer)
+1a      Austin → GlobalFoundries    $8.40M   customer loss
+1b      Austin → Micron             $5.40M   customer loss
+1c      Austin → Penang             $960K    INTER-PLANT — bridges to hop 2
+        → Penang 11% impaired, 12-day buffer, exposed 48 days
+2a      Penang → TSMC               $794K    customer loss
+2b      Penang → Texas Instruments  $497K    customer loss
+sum     5 flows, 2 hops, $16.05M, camera pulls back
+```
+
+**Ordering inside a hop is deliberate.** Customer-facing flows come first, biggest
+first, because those are the immediate revenue losses. Inter-plant flows come
+**last**, because they are the bridge to the next hop — ending a hop on the flow
+that causes the next one makes the cascade tell itself rather than needing
+narration.
+
+Each beat carries its own panel: what is happening, what it causes, the value for
+that lane, and the running total against the scenario's total. Both views spotlight
+the active lane and drop everything else back, so the two panels always agree about
+what is being discussed.
+
+### The camera
+
+With `follow with zoom` on, the map frames the two endpoints of the active beat —
+bounding box, padded, forced to the panel's aspect ratio, floored so a single node
+cannot fill the screen, and clamped inside the world so it never shows void.
+Everything drawn is divided by the zoom factor, so labels and node radii hold their
+on-screen size instead of ballooning.
+
+The resulting zoom sequence was not scripted; it falls out of the geography, and it
+happens to narrate the story:
+
+| Beat | Framed | Zoom |
+|---|---|---|
+start | Austin alone | 4.2× |
+1a | Austin + GlobalFoundries | 3.0× |
+1b | Austin + Micron | 3.0× |
+**1c** | Austin + **Penang** | **1.0×** |
+2a | Penang + TSMC | 2.6× |
+2b | Penang + Texas Instruments | 1.0× |
+
+The camera sits tight on Texas for the two US customers, then pulls all the way out
+at 1c — the exact moment the chain jumps to Malaysia. The most important beat in the
+scenario is the one where the view snaps to the whole world.
+
+Beats that impair a downstream site dwell longer during playback (3.4s against
+2.3s), because those carry the explanation that makes the following hop make sense.
 
 ---
 
@@ -213,7 +273,7 @@ npm run dev
 ```
 
 Pages: **Scenario Studio** (build and run), **Ripple Map** (both views, synced
-selection, step animation), **Mitigation** (plan, before/after, AI), and the
+selection, sub-step player), **Mitigation** (plan, before/after, AI), and the
 **Guided Demo**, which walks the hurricane end to end in seven annotated steps.
 
 The Guided Demo embeds the real components with numbered pins on the click targets,

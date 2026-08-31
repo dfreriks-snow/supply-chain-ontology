@@ -228,6 +228,7 @@ Ripple Map, Mitigation), and the Guided Demo walks the scenario end to end.
 `components/RippleGraph.tsx` | Cytoscape topology with hop rings and SPOF halos |
 `components/ScenarioCharts.tsx` | Bullet charts, staged action pipeline, flow comparison |
 `components/Walkthrough.tsx` | Screen frames and annotation pins for the Guided Demo |
+`lib/substeps.ts` | Decomposes a scenario into lettered beats and their camera framing |
 `hooks/useScenario.ts` | Module-level scenario store, so a run survives navigation |
 
 Scenario state lives in a module-level store rather than React context: running a

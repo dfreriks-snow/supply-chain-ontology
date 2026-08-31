@@ -2,14 +2,19 @@ import { useEffect, useMemo, useState } from "react";
 import { RippleGraph } from "../components/RippleGraph";
 import { WorldMap } from "../components/WorldMap";
 import { useNetwork, useScenario, useScenarioMaps } from "../hooks/useScenario";
-import { hopColor, money } from "../lib/severity";
+import { hopColor, money, severityColor } from "../lib/severity";
+import { buildSubSteps, groupByHop, revealedFlows, revealedHop } from "../lib/substeps";
 
 /**
- * The ripple, geographically and topologically, side by side.
+ * The ripple, geographically and topologically, stepped one lane at a time.
  *
  * Selection is shared: clicking a node in either view highlights it in the other.
- * That is the whole reason for showing both — the reader can ask "where is this"
- * and "how far from the event is this" about the same node without losing it.
+ * That is the reason for showing both — the reader can ask "where is this" and
+ * "how far from the event is this" about the same node without losing it.
+ *
+ * The player walks lettered sub-steps rather than whole hops. Revealing a hop at
+ * once lights three arcs simultaneously and hides which one causes the next hop;
+ * one lane per beat, with the camera framing that lane, makes the chain legible.
  */
 export default function RippleMap() {
   const { net, spof } = useNetwork();
@@ -17,39 +22,44 @@ export default function RippleMap() {
   const { affected, impaired } = useScenarioMaps(result);
 
   const [selected, setSelected] = useState<string | null>(null);
-  const [revealHop, setRevealHop] = useState<number | undefined>(undefined);
+  const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [showReroutes, setShowReroutes] = useState(true);
+  const [showReroutes, setShowReroutes] = useState(false);
+  const [zoom, setZoom] = useState(true);
 
-  const maxHop = result?.totals.maxHop ?? 0;
+  const steps = useMemo(() => buildSubSteps(result), [result]);
+  const hopGroups = useMemo(() => groupByHop(steps), [steps]);
+  const step = steps[idx];
 
-  /**
-   * Step the reveal outward one hop at a time. Showing the whole cascade at once
-   * makes it look like a single simultaneous event; stepping it is what makes the
-   * word "ripple" mean anything, and it also makes clear that later hops are
-   * consequences rather than independent failures.
-   */
+  // Reset to the origin whenever a different scenario arrives.
+  useEffect(() => { setIdx(0); setPlaying(false); }, [result]);
+
   useEffect(() => {
-    if (!playing) return;
-    if (revealHop === undefined) { setRevealHop(0); return; }
-    if (revealHop >= maxHop) { setPlaying(false); return; }
-    const t = setTimeout(() => setRevealHop((h) => (h === undefined ? 0 : h + 1)), 1100);
+    if (!playing || !steps.length) return;
+    if (idx >= steps.length - 1) { setPlaying(false); return; }
+    // Longer on beats that impair a downstream site: those carry the explanation
+    // that makes the next hop make sense.
+    const dwell = steps[idx]?.impairs ? 3400 : 2300;
+    const t = setTimeout(() => setIdx((i) => i + 1), dwell);
     return () => clearTimeout(t);
-  }, [playing, revealHop, maxHop]);
+  }, [playing, idx, steps]);
 
-  const play = () => { setRevealHop(0); setPlaying(true); };
-  const showAll = () => { setPlaying(false); setRevealHop(undefined); };
+  const shownFlows = useMemo(() => revealedFlows(steps, idx), [steps, idx]);
+  const shownHop = useMemo(() => revealedHop(steps, idx), [steps, idx]);
+  const focus = zoom ? step?.focusNodes ?? [] : [];
 
   const selectedDetail = useMemo(() => {
     if (!selected || !net) return null;
     const node = net.nodes.find((n) => n.node_id === selected);
     if (!node) return null;
-    const imp = impaired.get(selected);
-    const inbound = net.flows.filter((f) => f.target_id === selected);
-    const outbound = net.flows.filter((f) => f.source_id === selected);
-    const cap = net.capacity.find((c) => c.plant === node.plant);
-    const inv = net.inventory.find((i) => i.plant === node.plant);
-    return { node, imp, inbound, outbound, cap, inv };
+    return {
+      node,
+      imp: impaired.get(selected),
+      inbound: net.flows.filter((f) => f.target_id === selected),
+      outbound: net.flows.filter((f) => f.source_id === selected),
+      cap: net.capacity.find((c) => c.plant === node.plant),
+      inv: net.inventory.find((i) => i.plant === node.plant),
+    };
   }, [selected, net, impaired]);
 
   if (!net) {
@@ -58,14 +68,14 @@ export default function RippleMap() {
     </div>;
   }
 
-  if (!result) {
+  if (!result || !steps.length) {
     return (
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <div className="text-sm font-semibold text-slate-800">No scenario has been run yet</div>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-          Open <b>Scenario Studio</b>, pick a disruption and run it. The ripple appears here
-          on both views at once — geography on the left, network topology on the right —
-          and selecting a node in one highlights it in the other.
+          Open <b>Scenario Studio</b>, pick a disruption and run it. The ripple then plays
+          here one lane at a time, on the map and the network graph together, with the camera
+          following each step.
         </p>
         {running && <div className="mt-3 text-sm text-slate-500">Simulating…</div>}
         {error && <div className="mt-3 text-sm text-rose-600">{error}</div>}
@@ -73,9 +83,11 @@ export default function RippleMap() {
     );
   }
 
+  const pctThrough = Math.round(((idx + 1) / steps.length) * 100);
+
   return (
     <div className="space-y-4">
-      {/* controls */}
+      {/* ---- controls ---------------------------------------------------- */}
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-white p-3">
         <div className="text-sm font-semibold text-slate-800">
           {disruption?.label ?? "Scenario"}
@@ -85,15 +97,32 @@ export default function RippleMap() {
         </span>
 
         <div className="ml-auto flex items-center gap-2">
-          <button onClick={play} disabled={playing}
+          <button onClick={() => { setIdx(0); setPlaying(true); }} disabled={playing}
             className="rounded bg-sky-600 px-3 py-1.5 text-xs font-medium text-white
                        hover:bg-sky-700 disabled:opacity-50">
-            {playing ? "Playing…" : "Play ripple"}
+            {playing ? "Playing…" : "Play from the start"}
           </button>
-          <button onClick={showAll}
-            className="rounded border border-gray-300 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50">
-            Show all hops
+          <button onClick={() => setPlaying(false)} disabled={!playing}
+            className="rounded border border-gray-300 px-2.5 py-1.5 text-xs text-slate-600
+                       hover:bg-slate-50 disabled:opacity-40">
+            Pause
           </button>
+          <button onClick={() => { setPlaying(false); setIdx(Math.max(0, idx - 1)); }}
+            disabled={idx === 0}
+            className="rounded border border-gray-300 px-2.5 py-1.5 text-xs text-slate-600
+                       hover:bg-slate-50 disabled:opacity-40">
+            ‹ Prev
+          </button>
+          <button onClick={() => { setPlaying(false); setIdx(Math.min(steps.length - 1, idx + 1)); }}
+            disabled={idx === steps.length - 1}
+            className="rounded border border-gray-300 px-2.5 py-1.5 text-xs text-slate-600
+                       hover:bg-slate-50 disabled:opacity-40">
+            Next ›
+          </button>
+          <label className="flex items-center gap-1.5 text-xs text-slate-600">
+            <input type="checkbox" checked={zoom} onChange={(e) => setZoom(e.target.checked)} />
+            follow with zoom
+          </label>
           <label className="flex items-center gap-1.5 text-xs text-slate-600">
             <input type="checkbox" checked={showReroutes}
                    onChange={(e) => setShowReroutes(e.target.checked)} />
@@ -102,43 +131,124 @@ export default function RippleMap() {
         </div>
       </div>
 
-      {/* hop stepper: doubles as a legend for the ring colours */}
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-white p-3">
-        <span className="text-xs text-slate-500">Reveal</span>
-        {result.hops.map((h) => {
-          const active = revealHop === undefined || revealHop >= h.hop;
-          return (
-            <button key={h.hop}
-              onClick={() => { setPlaying(false); setRevealHop(h.hop); }}
-              className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition
-                ${revealHop === h.hop ? "border-slate-800 bg-slate-800 text-white"
-                  : active ? "border-gray-300 bg-white text-slate-700" : "border-gray-200 bg-slate-50 text-slate-400"}`}>
-              <span className="inline-block h-2.5 w-2.5 rounded-full"
-                    style={{ background: hopColor(h.hop) }} />
-              hop {h.hop}
-              <span className="text-slate-400">{h.flows}f</span>
-              {h.valueAtRisk > 0 && <span className="font-semibold">{money(h.valueAtRisk)}</span>}
-            </button>
-          );
-        })}
-        <span className="ml-auto text-[11px] text-slate-400">
-          {revealHop === undefined
-            ? "showing the full cascade"
-            : `showing hops 0–${revealHop} of ${maxHop}`}
-        </span>
+      {/* ---- the stepper: hops, each broken into lettered beats ----------- */}
+      <div className="rounded-lg border border-gray-200 bg-white p-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          {hopGroups.map(({ hop, steps: ss }) => (
+            <div key={hop} className="flex items-center gap-1.5">
+              <span className="flex items-center gap-1 text-[11px] font-semibold text-slate-500">
+                <span className="inline-block h-2.5 w-2.5 rounded-full"
+                      style={{ background: hopColor(hop) }} />
+                {hop === 0 ? "Origin" : `Hop ${hop}`}
+              </span>
+              {ss.map((s) => {
+                const at = steps.indexOf(s);
+                const done = at < idx;
+                const now = at === idx;
+                return (
+                  <button key={s.id}
+                    onClick={() => { setPlaying(false); setIdx(at); }}
+                    title={s.title}
+                    className={`rounded px-2 py-1 text-[11px] font-medium transition
+                      ${now ? "bg-slate-800 text-white ring-2 ring-slate-300"
+                        : done ? "bg-sky-100 text-sky-800"
+                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}>
+                    {s.id === "0" ? "start" : s.id}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+          <button onClick={() => { setPlaying(false); setIdx(steps.length - 1); }}
+            className={`rounded px-2 py-1 text-[11px] font-medium
+              ${idx === steps.length - 1 ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-500"}`}>
+            all
+          </button>
+          <span className="ml-auto text-[11px] text-slate-400">
+            step {idx + 1} of {steps.length}
+          </span>
+        </div>
+        <div className="mt-2 h-1 w-full overflow-hidden rounded bg-slate-100">
+          <div className="h-full bg-sky-500 transition-all duration-500"
+               style={{ width: `${pctThrough}%` }} />
+        </div>
       </div>
 
-      {/* the two synced views */}
+      {/* ---- WHAT IS HAPPENING RIGHT NOW --------------------------------- */}
+      <div className="rounded-lg border-2 border-sky-300 bg-sky-50 p-4">
+        <div className="flex flex-wrap items-baseline gap-3">
+          <span className="rounded bg-slate-800 px-2 py-0.5 text-xs font-bold text-white">
+            {step.id === "0" ? "START" : step.id === "sum" ? "SUMMARY" : `STEP ${step.id.toUpperCase()}`}
+          </span>
+          <span className="text-base font-bold text-slate-800">{step.title}</span>
+          {step.hop > 0 && step.kind !== "summary" && (
+            <span className="flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[11px]
+                             font-medium text-slate-600">
+              <span className="inline-block h-2 w-2 rounded-full"
+                    style={{ background: hopColor(step.hop) }} />
+              hop {step.hop}
+            </span>
+          )}
+          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium
+            ${step.kind === "interplant" ? "bg-amber-100 text-amber-800"
+              : step.kind === "customer" ? "bg-rose-100 text-rose-800"
+              : "bg-slate-100 text-slate-600"}`}>
+            {step.kind === "interplant" ? "inter-plant — this causes the next hop"
+              : step.kind === "customer" ? "direct customer loss"
+              : step.kind === "origin" ? "the event itself" : "everything revealed"}
+          </span>
+          {step.valueAtRisk > 0 && (
+            <span className="ml-auto text-lg font-bold text-rose-700">
+              {money(step.valueAtRisk)}
+            </span>
+          )}
+        </div>
+
+        <p className="mt-2 max-w-4xl text-sm leading-relaxed text-slate-700">{step.what}</p>
+
+        {step.consequence && (
+          <div className="mt-2 flex gap-2 rounded border border-amber-200 bg-white px-3 py-2">
+            <span className="text-sm font-bold text-amber-600">→</span>
+            <p className="max-w-4xl text-sm leading-relaxed text-slate-700">{step.consequence}</p>
+          </div>
+        )}
+
+        <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 border-t border-sky-200 pt-2 text-[11px]">
+          <span className="text-slate-600">
+            revealed so far <b className="text-slate-900">{money(step.cumulative)}</b>
+          </span>
+          <span className="text-slate-600">
+            of <b className="text-slate-900">{money(result.totals.valueAtRisk)}</b> total
+          </span>
+          <span className="text-slate-600">
+            flows shown <b className="text-slate-900">{shownFlows.size}</b> of {result.flows.length}
+          </span>
+          {step.impairs && (
+            <span className="text-amber-800">
+              {step.impairs.node_name} now <b>{Math.round(step.impairs.impairment * 100)}%</b> impaired
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* ---- the two synced views ---------------------------------------- */}
       <div className="grid grid-cols-2 gap-4">
         <div className="rounded-lg border border-gray-200 bg-white p-3">
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Geography — where it happens
+          <div className="mb-2 flex items-baseline gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Geography — where it happens
+            </span>
+            {zoom && focus.length > 0 && (
+              <span className="text-[10px] text-sky-600">following step {step.id}</span>
+            )}
           </div>
           <WorldMap nodes={net.nodes} flows={net.flows}
             affected={affected} impaired={impaired}
             reroutes={showReroutes ? plan?.reroutes : []}
-            revealHop={revealHop}
-            selected={selected} onSelect={setSelected} height={430} />
+            revealHop={shownHop}
+            highlightFlows={step.kind === "summary" ? undefined : new Set(step.flowIds)}
+            focusNodes={focus}
+            selected={selected} onSelect={setSelected} height={400} />
         </div>
 
         <div className="rounded-lg border border-gray-200 bg-white p-3">
@@ -148,12 +258,54 @@ export default function RippleMap() {
           <RippleGraph nodes={net.nodes} flows={net.flows}
             affected={affected} impaired={impaired}
             reroutes={showReroutes ? plan?.reroutes : []}
-            revealHop={revealHop} spof={spof}
-            selected={selected} onSelect={setSelected} height={430} />
+            revealHop={shownHop} spof={spof}
+            highlightFlows={step.kind === "summary" ? undefined : new Set(step.flowIds)}
+            selected={selected} onSelect={setSelected} height={400} />
         </div>
       </div>
 
-      {/* selection detail, driven by whichever view was clicked */}
+      {/* ---- the beat list, so the whole chain is readable at once -------- */}
+      <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          The chain, step by step
+        </div>
+        <div className="mt-2 space-y-1">
+          {steps.filter((s) => s.kind !== "summary").map((s) => {
+            const at = steps.indexOf(s);
+            const now = at === idx;
+            const done = at < idx;
+            return (
+              <button key={s.id} onClick={() => { setPlaying(false); setIdx(at); }}
+                className={`flex w-full items-center gap-3 rounded px-2 py-1.5 text-left transition
+                  ${now ? "bg-sky-50 ring-1 ring-sky-300" : done ? "" : "opacity-45"}
+                  hover:bg-slate-50`}>
+                <span className="w-9 shrink-0 text-[11px] font-bold text-slate-500">
+                  {s.id === "0" ? "start" : s.id}
+                </span>
+                <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ background: hopColor(s.hop) }} />
+                <span className="min-w-0 flex-1 truncate text-xs text-slate-700">{s.title}</span>
+                {s.kind === "interplant" && (
+                  <span className="shrink-0 rounded bg-amber-100 px-1.5 text-[10px] text-amber-800">
+                    bridges to hop {s.hop + 1}
+                  </span>
+                )}
+                <span className="w-20 shrink-0 text-right text-xs font-semibold text-slate-800">
+                  {s.valueAtRisk > 0 ? money(s.valueAtRisk) : "—"}
+                </span>
+                <span className="w-20 shrink-0 text-right text-[11px] text-slate-400">
+                  {money(s.cumulative)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="mt-2 flex justify-end gap-4 border-t border-gray-100 pt-2 text-[11px] text-slate-400">
+          <span>this step</span><span className="w-20 text-right">running total</span>
+        </div>
+      </div>
+
+      {/* ---- selection detail -------------------------------------------- */}
       {selectedDetail && (
         <div className="rounded-lg border border-sky-200 bg-sky-50 p-4">
           <div className="flex items-baseline gap-2">
@@ -171,7 +323,6 @@ export default function RippleMap() {
             <button onClick={() => setSelected(null)}
                     className="ml-auto text-xs text-slate-500 hover:text-slate-800">clear</button>
           </div>
-
           {selectedDetail.imp?.causedBy && (
             <div className="mt-1 text-xs text-slate-600">
               Reached via {selectedDetail.imp.causedBy}
@@ -179,38 +330,28 @@ export default function RippleMap() {
                 ` · ${selectedDetail.imp.bufferDays}d buffer absorbed the first part, exposed ${selectedDetail.imp.daysExposed}d`}
             </div>
           )}
-
           <div className="mt-3 grid grid-cols-3 gap-4 text-xs">
-            <div>
-              <div className="font-semibold text-slate-600">Inbound ({selectedDetail.inbound.length})</div>
-              {selectedDetail.inbound.map((f) => {
-                const a = affected.get(f.flow_id);
-                return (
-                  <div key={f.flow_id} className="mt-1 flex justify-between gap-2">
-                    <span className="truncate text-slate-600">{f.source_name}</span>
-                    <span className={a ? "font-medium text-rose-700" : "text-slate-400"}>
-                      {a ? money(a.valueAtRisk) : money(f.monthly_value)}
-                    </span>
-                  </div>
-                );
-              })}
-              {!selectedDetail.inbound.length && <div className="mt-1 text-slate-400">none</div>}
-            </div>
-            <div>
-              <div className="font-semibold text-slate-600">Outbound ({selectedDetail.outbound.length})</div>
-              {selectedDetail.outbound.map((f) => {
-                const a = affected.get(f.flow_id);
-                return (
-                  <div key={f.flow_id} className="mt-1 flex justify-between gap-2">
-                    <span className="truncate text-slate-600">{f.target_name}</span>
-                    <span className={a ? "font-medium text-rose-700" : "text-slate-400"}>
-                      {a ? money(a.valueAtRisk) : money(f.monthly_value)}
-                    </span>
-                  </div>
-                );
-              })}
-              {!selectedDetail.outbound.length && <div className="mt-1 text-slate-400">none</div>}
-            </div>
+            {(["inbound", "outbound"] as const).map((dir) => (
+              <div key={dir}>
+                <div className="font-semibold capitalize text-slate-600">
+                  {dir} ({selectedDetail[dir].length})
+                </div>
+                {selectedDetail[dir].map((f) => {
+                  const a = affected.get(f.flow_id);
+                  return (
+                    <div key={f.flow_id} className="mt-1 flex justify-between gap-2">
+                      <span className="truncate text-slate-600">
+                        {dir === "inbound" ? f.source_name : f.target_name}
+                      </span>
+                      <span className={a ? "font-medium text-rose-700" : "text-slate-400"}>
+                        {a ? money(a.valueAtRisk) : money(f.monthly_value)}
+                      </span>
+                    </div>
+                  );
+                })}
+                {!selectedDetail[dir].length && <div className="mt-1 text-slate-400">none</div>}
+              </div>
+            ))}
             <div>
               <div className="font-semibold text-slate-600">State</div>
               {selectedDetail.cap ? (
@@ -222,7 +363,7 @@ export default function RippleMap() {
                   <div className="flex justify-between"><span className="text-slate-500">spare units</span>
                     <span className="text-slate-700">{selectedDetail.cap.spare_units}</span></div>
                 </>
-              ) : <div className="mt-1 text-slate-400">not a plant — no capacity or stock held</div>}
+              ) : <div className="mt-1 text-slate-400">not a plant — holds no capacity or stock</div>}
               {selectedDetail.inv && (
                 <div className="flex justify-between"><span className="text-slate-500">min buffer</span>
                   <span className="text-slate-700">{selectedDetail.inv.min_days_of_inventory}d</span></div>
@@ -231,41 +372,6 @@ export default function RippleMap() {
           </div>
         </div>
       )}
-
-      {/* flows at risk */}
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Flows at risk ({result.flows.length})
-        </div>
-        <table className="mt-2 w-full text-xs">
-          <thead className="text-left text-slate-500">
-            <tr className="border-b border-gray-200">
-              <th className="py-1.5">Hop</th><th>Flow</th><th>Category</th>
-              <th className="text-right">Lost</th><th className="text-right">Days</th>
-              <th className="text-right">Units</th><th className="text-right">At risk</th>
-              <th>Why</th>
-            </tr>
-          </thead>
-          <tbody>
-            {result.flows.map((f) => (
-              <tr key={f.flow_id}
-                  className={`border-b border-gray-100 ${revealHop !== undefined && f.hop > revealHop ? "opacity-30" : ""}`}>
-                <td className="py-1.5">
-                  <span className="inline-block h-2.5 w-2.5 rounded-full"
-                        style={{ background: hopColor(f.hop) }} /> {f.hop}
-                </td>
-                <td className="text-slate-700">{f.source_name} → {f.target_name}</td>
-                <td className="text-slate-500">{f.material_category}</td>
-                <td className="text-right font-medium text-slate-800">{Math.round(f.impactFactor * 100)}%</td>
-                <td className="text-right text-slate-500">{f.daysAtRisk}</td>
-                <td className="text-right text-slate-500">{f.unitsAtRisk}</td>
-                <td className="text-right font-semibold text-rose-700">{money(f.valueAtRisk)}</td>
-                <td className="text-slate-500">{f.reason}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 }
