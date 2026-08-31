@@ -2,6 +2,10 @@ import { Router } from "express";
 import { loadOntology, buildGraph } from "../services/ontology.js";
 import { ask, askConfigured, semanticView } from "../services/analyst.js";
 import { traverse, shortestPath, hubs, topology } from "../services/traverse.js";
+import { loadNetwork, simulate, type Disruption, type DisruptionKind }
+  from "../services/scenario.js";
+import { mitigate } from "../services/mitigate.js";
+import { explain, interrogate, reasoningConfigured } from "../services/reason.js";
 
 export const apiRouter = Router();
 
@@ -257,4 +261,131 @@ apiRouter.get("/api/demo", wrap((_req, res) => {
     scope: (ont as any).scope ?? null,
     semanticView,
   });
+}));
+
+// ---- scenario modelling ----------------------------------------------------
+
+const KINDS: DisruptionKind[] = ["weather", "supplier", "capacity", "lane", "demand"];
+
+/** The network plus everything the Studio needs to build a valid disruption. */
+apiRouter.get("/api/scenario/network", wrap((_req, res) => {
+  const net = loadNetwork();
+  res.json({
+    nodes: net.nodes, flows: net.flows,
+    capacity: net.capacity, inventory: net.inventory,
+    substitution: net.substitution,
+    totals: net.totals, notes: net.notes, source: net.source,
+    kinds: KINDS,
+  });
+}));
+
+/**
+ * Validate a disruption from the client. Returning a clear reason beats letting
+ * the engine silently produce an empty ripple, which reads as "no impact" and is
+ * indistinguishable from a working simulation of a harmless event.
+ */
+function parseDisruption(body: any): { d?: Disruption; error?: string } {
+  const kind = String(body?.kind ?? "");
+  if (!KINDS.includes(kind as DisruptionKind)) {
+    return { error: `kind must be one of ${KINDS.join(", ")}` };
+  }
+  const targets: string[] = Array.isArray(body?.targets)
+    ? body.targets.map(String).filter(Boolean) : [];
+  if (!targets.length) return { error: "at least one target is required" };
+
+  const net = loadNetwork();
+  const known = kind === "lane"
+    ? new Set(net.flows.map((f) => f.flow_id))
+    : new Set(net.nodes.map((n) => n.node_id));
+  const unknown = targets.filter((t) => !known.has(t));
+  if (unknown.length) {
+    return { error: `unknown ${kind === "lane" ? "flow" : "node"} id: ${unknown.join(", ")}` };
+  }
+  if (kind === "demand") {
+    const nonCustomer = targets.filter(
+      (t) => net.nodes.find((n) => n.node_id === t)?.node_type !== "Customer");
+    if (nonCustomer.length) {
+      return { error: `demand targets must be customers: ${nonCustomer.join(", ")}` };
+    }
+  }
+
+  const severity = Number(body?.severity);
+  const durationDays = Number(body?.durationDays);
+  if (!Number.isFinite(severity) || severity <= 0) {
+    return { error: "severity must be greater than 0" };
+  }
+  if (!Number.isFinite(durationDays) || durationDays <= 0) {
+    return { error: "durationDays must be greater than 0" };
+  }
+
+  return {
+    d: {
+      kind: kind as DisruptionKind,
+      targets,
+      severity: Math.min(kind === "demand" ? 5 : 1, severity),
+      durationDays: Math.min(365, durationDays),
+      label: body?.label ? String(body.label).slice(0, 120) : undefined,
+    },
+  };
+}
+
+/** Simulate and mitigate in one call — the UI always needs both together. */
+apiRouter.post("/api/scenario/simulate", wrap((req, res) => {
+  const { d, error } = parseDisruption(req.body);
+  if (!d) return res.status(400).json({ error });
+  const result = simulate(d);
+  res.json({ result, plan: mitigate(result) });
+}));
+
+apiRouter.get("/api/scenario/reasoning/status", wrap((_req, res) => {
+  res.json(reasoningConfigured());
+}));
+
+/** AI briefing over an already-computed scenario. */
+apiRouter.post("/api/scenario/explain", wrapAsync(async (req, res) => {
+  const { d, error } = parseDisruption(req.body);
+  if (!d) { res.status(400).json({ error }); return; }
+  const result = simulate(d);
+  const plan = mitigate(result);
+  res.json({ text: await explain(result, plan) });
+}));
+
+/** Follow-up what-if against the same scenario. */
+apiRouter.post("/api/scenario/ask", wrapAsync(async (req, res) => {
+  const question = String(req.body?.question ?? "").trim();
+  if (!question) { res.status(400).json({ error: "question is required" }); return; }
+  const { d, error } = parseDisruption(req.body);
+  if (!d) { res.status(400).json({ error }); return; }
+  const result = simulate(d);
+  const plan = mitigate(result);
+  const history = Array.isArray(req.body?.history) ? req.body.history : [];
+  res.json({ text: await interrogate(result, plan, question, history) });
+}));
+
+/** Preset scenarios, so the page opens on something meaningful. */
+apiRouter.get("/api/scenario/presets", wrap((_req, res) => {
+  res.json([
+    { id: "hurricane-austin", label: "Hurricane — Austin Fab offline",
+      kind: "weather", targets: ["PLT-2000"], severity: 1, durationDays: 60,
+      blurb: "The headline case: two customers lose supply directly and Penang is " +
+             "starved of test fixtures, pulling Die Sorting down with it." },
+    { id: "typhoon-penang", label: "Typhoon — Penang Assembly offline",
+      kind: "weather", targets: ["PLT-5000"], severity: 1, durationDays: 30,
+      blurb: "Penang is single-source for Die Sorting, so nothing here can be rerouted." },
+    { id: "supplier-hamamatsu", label: "Supplier failure — Hamamatsu Photonics",
+      kind: "supplier", targets: ["SUP-001"], severity: 1, durationDays: 45,
+      blurb: "One supplier feeding two plants at once, which is why the ripple is wide " +
+             "but shallow." },
+    { id: "capacity-dresden", label: "Partial loss — Dresden Fab at 60%",
+      kind: "capacity", targets: ["PLT-3000"], severity: 0.4, durationDays: 30,
+      blurb: "Dresden has the least headroom in the network and is sole source for " +
+             "E-Beam Review." },
+    { id: "lane-sj-penang", label: "Lane closed — San Jose to Penang",
+      kind: "lane", targets: ["FL-025"], severity: 1, durationDays: 40,
+      blurb: "Both plants keep running; only the lane stops. Penang still loses a third " +
+             "of its inbound volume." },
+    { id: "demand-tsmc", label: "Demand spike — TSMC +60%",
+      kind: "demand", targets: ["CUS-001"], severity: 0.6, durationDays: 30,
+      blurb: "Tests headroom in the other direction: two plants go over 100%." },
+  ]);
 }));

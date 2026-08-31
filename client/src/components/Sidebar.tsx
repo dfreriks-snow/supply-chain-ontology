@@ -1,8 +1,10 @@
 import { Network, Workflow, Grid3x3, ShieldCheck, LayoutDashboard, Boxes,
-         MessageSquare, Share2, PlayCircle } from "lucide-react";
+         MessageSquare, Share2, PlayCircle, CloudLightning, Globe2,
+         Wrench } from "lucide-react";
 
 export type PageId = "overview" | "graph" | "traverse" | "processes" | "usecases"
-                   | "correlation" | "coverage" | "ask" | "demo";
+                   | "correlation" | "coverage" | "ask" | "demo"
+                   | "scenario" | "ripple" | "mitigation";
 
 const NAV: { id: PageId; label: string; icon: any }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -14,6 +16,9 @@ const NAV: { id: PageId; label: string; icon: any }[] = [
   { id: "coverage", label: "Coverage & Scorecard", icon: ShieldCheck },
   { id: "ask", label: "Ask the Ontology", icon: MessageSquare },
   { id: "demo", label: "Guided Demo", icon: PlayCircle },
+  { id: "scenario", label: "Scenario Studio", icon: CloudLightning },
+  { id: "ripple", label: "Ripple Map", icon: Globe2 },
+  { id: "mitigation", label: "Mitigation", icon: Wrench },
 ];
 
 export function Sidebar({ active, onNavigate, products, entities }: {

@@ -220,3 +220,66 @@ payload never formed.
 Rewriting the harness in Python gave the true result: 3 passed, 3 failed — which
 then led to the real bug. Worth confirming the harness works before trusting a
 red result.
+
+---
+
+## The rate mismatch
+
+The mitigation optimizer compared **units needed over the whole event** against
+**spare capacity per month**. For a 60-day outage that meant testing a two-month
+requirement against one month of headroom, and it wrongly rejected reroutes that
+were comfortably feasible:
+
+```
+before:  Inspection 4u vs 5 spare -> fits;  Metrology 6u vs 1 left -> REJECTED
+after:   Inspection 2u/mo,        Metrology 3u/mo -> both fit exactly
+         protected 55.7%  ->  91.4%
+```
+
+Both figures were individually correct and the units even looked plausible, which
+is what made it survive a first read. It was caught only because the result was
+checked against a hand-computed expectation — San Jose has 5 spare units and the
+two flows need 2 and 3, so "no capacity" could not be right.
+
+The engine now exposes `unitsPerMonthAtRisk` alongside `unitsAtRisk`, with a
+comment on each stating which one capacity comparisons must use.
+
+**Lesson:** when two quantities have units, check the units before checking the
+logic. A rate compared against a total produces answers that are wrong by exactly
+the ratio of the windows, and nothing in the output announces it.
+
+---
+
+## Lane closures did not ripple
+
+The propagation loop seeded its frontier from `origin` — the nodes an event hits
+directly. A lane closure has no such node: both endpoints keep operating and only
+the flow between them stops, so `origin` was empty and the breadth-first search
+never started.
+
+The receiving plant was correctly marked 34.5% impaired, and then nothing
+propagated from it. The scenario reported **$0 revenue at risk** for a disruption
+that plainly had some — an answer that looks like a working simulation of a
+harmless event.
+
+The fix seeds the frontier from every node the seeding phase impaired, at its own
+hop, rather than from `origin` alone.
+
+**Lesson:** a zero is the most dangerous output a model can produce, because it
+is indistinguishable from good news. The check that caught this asserted
+`revenueAtRisk > 0` for a case where non-zero was structurally certain.
+
+---
+
+## A misleading label is a correctness bug
+
+The optimizer reported "no alternative plant makes this category" for Metrology,
+when San Jose makes Metrology perfectly well — it was simply caught in the same
+disruption.
+
+Both cases block the reroute, so the arithmetic was right. But the two demand
+completely different responses: one needs a qualification programme measured in
+months, the other needs a different scenario response today. Reporting them under
+one label would have sent the reader down the wrong path with correct numbers.
+
+There are now three reasons, and the plan text differs for each.

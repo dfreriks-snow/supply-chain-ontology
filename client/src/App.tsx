@@ -11,6 +11,9 @@ import Coverage from "./pages/Coverage";
 import Ask from "./pages/Ask";
 import Traverse from "./pages/Traverse";
 import Demo from "./pages/Demo";
+import ScenarioStudio from "./pages/ScenarioStudio";
+import RippleMap from "./pages/RippleMap";
+import Mitigation from "./pages/Mitigation";
 
 const TITLES: Record<PageId, string> = {
   overview: "Portfolio Overview",
@@ -22,6 +25,9 @@ const TITLES: Record<PageId, string> = {
   coverage: "Coverage & Scorecard",
   ask: "Ask the Ontology",
   demo: "Guided Demo",
+  scenario: "Scenario Studio",
+  ripple: "Ripple Map — geography and topology",
+  mitigation: "Mitigation Plan",
 };
 
 export default function App() {
@@ -39,6 +45,9 @@ export default function App() {
       case "coverage": return <Coverage />;
       case "ask": return <Ask />;
       case "demo": return <Demo />;
+      case "scenario": return <ScenarioStudio />;
+      case "ripple": return <RippleMap />;
+      case "mitigation": return <Mitigation />;
     }
   };
 

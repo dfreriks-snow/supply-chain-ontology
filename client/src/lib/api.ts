@@ -135,6 +135,107 @@ export interface Topology {
               canonicalObjects: { canonical: string; links: number }[] };
 }
 
+
+// ---- scenario modelling ----------------------------------------------------
+
+export type DisruptionKind = "weather" | "supplier" | "capacity" | "lane" | "demand";
+
+export interface ScNode {
+  node_id: string; node_name: string; node_type: "Plant" | "Supplier" | "Customer";
+  city: string; country: string; latitude: number; longitude: number;
+  plant: string | null;
+}
+export interface ScFlow {
+  flow_id: string; flow_type: "Inbound" | "Inter-plant" | "Outbound";
+  material_category: string; monthly_volume: number; monthly_value: number;
+  source_id: string; source_name: string; source_type: string;
+  source_lat: number; source_lon: number; source_plant: string | null;
+  target_id: string; target_name: string; target_type: string;
+  target_lat: number; target_lon: number; target_plant: string | null;
+}
+export interface ScCapacity {
+  plant: string; plant_name: string; work_centers: number;
+  available_hrs: number; used_hrs: number; free_hrs: number;
+  utilization_pct: number; headroom_pct: number;
+  units_shipped: number; hrs_per_unit: number; spare_units: number;
+}
+export interface ScInventory {
+  plant: string; plant_name: string | null; materials: number;
+  min_days_of_inventory: number; avg_days_of_inventory: number;
+  stock_value: number; obsolete_materials: number;
+}
+export interface ScSubstitution {
+  material_category: string; flow_type: string; source_plant: string;
+  plant_name: string; volume: number; value: number;
+  capable_plants: number; has_alternative: boolean;
+}
+export interface ScNetwork {
+  nodes: ScNode[]; flows: ScFlow[]; capacity: ScCapacity[];
+  inventory: ScInventory[]; substitution: ScSubstitution[];
+  totals: {
+    nodes: number; flows: number; monthly_value: number;
+    plants: number; suppliers: number; customers: number;
+    single_source_categories: string[];
+  };
+  notes: Record<string, string>; source: string; kinds: DisruptionKind[];
+}
+
+export interface Disruption {
+  kind: DisruptionKind; targets: string[];
+  severity: number; durationDays: number; label?: string;
+}
+export interface AffectedFlow {
+  flow_id: string; flow_type: string; material_category: string;
+  source_id: string; source_name: string;
+  target_id: string; target_name: string; target_type: string;
+  monthly_volume: number; monthly_value: number;
+  impactFactor: number; daysAtRisk: number;
+  unitsAtRisk: number; unitsPerMonthAtRisk: number; valueAtRisk: number;
+  hop: number; reason: string;
+}
+export interface ImpairedNode {
+  node_id: string; node_name: string; node_type: string; plant: string | null;
+  hop: number; impairment: number;
+  bufferDays: number | null; daysExposed: number; causedBy?: string;
+}
+export interface ScenarioResult {
+  disruption: Disruption;
+  origin: ImpairedNode[]; impaired: ImpairedNode[]; flows: AffectedFlow[];
+  hops: { hop: number; nodes: number; flows: number; valueAtRisk: number }[];
+  totals: {
+    valueAtRisk: number; monthlyNetworkValue: number; pctOfNetwork: number;
+    revenueAtRisk: number; customersAffected: number;
+    plantsImpaired: number; maxHop: number;
+  };
+  assumptions: string[];
+}
+export interface Reroute {
+  flow_id: string; material_category: string; customer: string;
+  fromPlant: string; toPlant: string; toPlantId: string;
+  unitsMoved: number; unitsTotal: number;
+  hrsRequired: number; hrsAvailableBefore: number; headroomPctAfter: number;
+  valueProtected: number; distanceDeltaKm: number | null; note?: string;
+}
+export interface Unmitigable {
+  flow_id: string; material_category: string; customer: string;
+  fromPlant: string; valueAtRisk: number; reason: string;
+  candidatesTried?: { plant: string; spareUnits: number; shortfallUnits: number }[];
+}
+export interface MitigationPlan {
+  reroutes: Reroute[]; unmitigable: Unmitigable[];
+  totals: {
+    revenueAtRisk: number; valueProtected: number; valueUnprotected: number;
+    protectedPct: number; unitsRerouted: number; plantsUsed: number;
+  };
+  capacityAfter: {
+    plant: string; plantName: string; unitsAdded: number; hrsAdded: number;
+    utilizationBefore: number; utilizationAfter: number; spareUnitsLeft: number;
+  }[];
+  actions: string[]; caveats: string[];
+}
+export interface SimulateResponse { result: ScenarioResult; plan: MitigationPlan; }
+export interface Preset extends Disruption { id: string; blurb: string; }
+
 export const api = {
   meta: () => get<Meta>("/meta"),
   graph: (o: GraphOpts) => get<{ elements: any[] }>(`/graph${gq(o)}`),
@@ -158,4 +259,12 @@ export const api = {
     get<PathResult>(`/path?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
   demo: () => get<DemoInfo>("/demo"),
   topology: () => get<Topology>("/topology"),
+
+  scNetwork: () => get<ScNetwork>("/scenario/network"),
+  scPresets: () => get<Preset[]>("/scenario/presets"),
+  scSimulate: (d: Disruption) => post<SimulateResponse>("/scenario/simulate", d),
+  scReasoningStatus: () => get<{ ok: boolean; missing: string[] }>("/scenario/reasoning/status"),
+  scExplain: (d: Disruption) => post<{ text: string }>("/scenario/explain", d),
+  scAsk: (d: Disruption, question: string, history: { role: string; text: string }[]) =>
+    post<{ text: string }>("/scenario/ask", { ...d, question, history }),
 };

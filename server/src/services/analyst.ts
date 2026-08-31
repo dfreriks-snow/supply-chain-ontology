@@ -137,7 +137,7 @@ function connect(): Promise<snowflake.Connection> {
 
 const MAX_ROWS = 500;
 
-async function runSql(sql: string): Promise<{ columns: string[]; rows: unknown[][] }> {
+export async function runSql(sql: string): Promise<{ columns: string[]; rows: unknown[][] }> {
   const conn = await connect();
   return new Promise((resolve, reject) => {
     conn.execute({

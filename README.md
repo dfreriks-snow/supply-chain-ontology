@@ -1,171 +1,211 @@
 # Supply Chain Ontology
 
 An ontology explorer for the **supply-chain slice of the SAP Business Data Cloud
-catalog**: 36 data products, 338 CDS entities and 281 declared associations
-across Design to Operate, Source to Pay and Lead to Cash.
+catalog** — 36 data products, 338 CDS entities and 281 declared associations
+across Design to Operate, Source to Pay and Lead to Cash. Explore the graph,
+traverse associations, review coverage, and ask questions in natural language
+through Cortex Analyst.
 
-Explore the graph, traverse associations, review coverage, and ask questions in
-natural language through Cortex Analyst.
-
-```
- 36 data products   338 CDS entities   281 associations
-  3 processes        19 ODM links       96% readiness
-```
-
-**[Live demo →](https://dfreriks-snow.github.io/supply-chain-ontology/)**
-(credential-free static build; Ask and shortest path are disabled there — see
-[public static build](#public-static-build))
+Derived from the full BDC Ontology Explorer (334 products) and focused for
+supply chain. Foundation material: the ontology-agent pattern from
+[`sfc-gh-tjia/supplychain_ontology_agent`](https://github.com/sfc-gh-tjia/supplychain_ontology_agent),
+the app and publishing patterns from
+[`sap-bdc-supply-chain-360`](https://github.com/dfreriks-snow/sap-bdc-supply-chain-360)
+and [`supply-chain-360-public`](https://github.com/dfreriks-snow/supply-chain-360-public),
+and the AI309 Summit narrative.
 
 ---
 
-## Quick start
+## What this is, and what it is not
+
+This models **metadata about SAP data products** — which entities exist, how
+they are annotated, and how they associate. It is *not* transactional supply
+chain data: there are no shipments, inventory levels or purchase orders in here.
+For those, see the SAP Supply Chain 360 app.
+
+---
+
+## Running it
 
 ```bash
 npm install
-npm run dev          # API :3009, client :5179
+npm run export-data      # build data/sc_ontology.json from the BDC catalog
+npm run deploy-views     # create the Snowflake views + verify parity (optional)
+npm run dev              # server :3009, client :5179
 ```
 
-Open <http://localhost:5179>. Eight of the nine pages work immediately from the
-committed `data/sc_ontology.json` — **no Snowflake connection required**.
+Open <http://localhost:5179>.
 
-Only *Ask the Ontology* needs credentials:
+Cortex Analyst needs `server/.env`:
 
-```bash
-cp server/.env.example server/.env    # fill in account, user, key path
 ```
-
----
-
-## Documentation
-
-| | |
-|---|---|
-[1. Concepts](docs/01-concepts.md) | What an ontology is here, semantic roles, the ODM overlay, the scope rule |
-[2. Architecture](docs/02-architecture.md) | Data flow, Snowflake objects, the app, the two run modes |
-[3. Build steps](docs/03-build-steps.md) | The sequence actually followed, with verification at each checkpoint |
-[4. Execution](docs/04-execution.md) | Running, refreshing, publishing, troubleshooting |
-[5. Findings](docs/05-findings.md) | What was not obvious and cost real time — **read before editing the semantic view** |
-[6. References](docs/06-references.md) | What each source repo contributed, and where the boundaries sit |
+SNOWFLAKE_ACCOUNT=…
+SNOWFLAKE_USER=…
+SNOWFLAKE_PRIVATE_KEY_PATH=…
+BDC_SEMANTIC_VIEW=SAP_BDC_ONTOLOGY.SUPPLY_CHAIN.SUPPLY_CHAIN_ONTOLOGY_MODEL
+PORT=3009
+```
 
 ---
 
 ## Pages
 
-| Page | Shows |
+| Page | What it shows |
 |---|---|
-Overview | Portfolio totals; lenses by source system, industry, provenance |
-Ontology Graph | Process → data product → entity, filterable and expandable |
-Graph Traversal | Breadth-first expansion and shortest association path |
-Business Processes | Per-process rollups and members |
-Use Cases | Mapping to BDC Intelligent Applications |
-Correlation | Process coupling via the ODM overlay |
-Coverage & Scorecard | Readiness scoring across the slice |
-Ask the Ontology | Cortex Analyst over the supply-chain semantic view |
-Guided Demo | Five-step walkthrough, figures read live from the ontology |
-
----
-
-## What this is, and is not
-
-This models **metadata about SAP data products** — which entities exist, how they
-are annotated, how they associate.
-
-It is **not transactional supply chain data**. There are no shipments, inventory
-levels, purchase orders or supplier risk scores. "Which supplier is late" cannot
-be answered here, and the semantic view says so explicitly so Cortex Analyst does
-not try. See [references](docs/06-references.md#boundaries-in-one-table) for
-which repo answers which question.
-
----
-
-## Two things worth knowing before demoing
-
-Both are measured, and both are stated on screen rather than hidden:
-
-**The association graph does not cross product boundaries.** All 281 associations
-stay inside their own data product, so an entity-level path never leaves the
-product it starts in. The 269 connected entities form **94 separate components**
-(largest: 14) and **69 entities declare no associations at all**. "No path found"
-is a correct answer.
-
-**Cross-product linkage is a star centred on `Plant`.** At the product level,
-20 of 36 products connect through the ODM overlay — entirely through the single
-canonical object `Plant`, at degree 19, with every other product at degree 1.
-`Plant` is the master-data spine of the SAP supply chain.
-
-Full measurements in [findings](docs/05-findings.md#the-graph-is-not-what-it-looks-like).
-
----
-
-## Snowflake objects
-
-Views over the parent ontology's `CORE` tables — no copies, one source of truth:
-
-```
-SAP_BDC_ONTOLOGY.SUPPLY_CHAIN
-  V_PRODUCT           36     V_ENTITY_EDGE     281
-  V_ENTITY           338     V_ODM_EDGE         19
-  V_PROCESS            3     V_PROCESS_ROLLUP    3
-  SUPPLY_CHAIN_ONTOLOGY_MODEL    2 facts · 12 metrics · 9 verified queries
-```
-
-Deploy and verify:
-
-```bash
-npm run deploy-views
-```
-
-This asserts the Snowflake views and the app's JSON agree on all five counts, and
-**fails if they drift** — otherwise Ask would answer over a different population
-than the pages display.
-
-> Before changing the semantic view, read
-> [findings](docs/05-findings.md#the-semantic-view-trap). Numeric columns must
-> stay dimensions with aggregates exposed as metrics; promoting them to facts
-> produces a model that validates, deploys, and then fails every query.
-
----
-
-## Public static build
-
-A credential-free snapshot for sharing, following the
-[`supply-chain-360-public`](https://github.com/dfreriks-snow/supply-chain-360-public)
-pattern.
-
-```bash
-npm run dev            # one shell — the baker reads the live API
-npm run bake           # 93 snapshots → client/public/data/
-npm run build:static
-npm run preview:static # http://localhost:8899
-```
-
-Commit `client/public/data/*.json`; the Pages workflow builds from them and
-refuses to deploy with fewer than 20. Ask and shortest path are disabled in the
-public build, each with an on-screen explanation.
+| Overview | Portfolio totals, lenses by source system, industry and provenance |
+| Ontology Graph | Process → data product → entity, filterable and expandable |
+| Graph Traversal | Breadth-first expansion and shortest association path |
+| Business Processes | Per-process rollups and members |
+| Use Cases | Mapping to BDC Intelligent Applications |
+| Correlation | Process coupling via the ODM master-data overlay |
+| Coverage & Scorecard | Readiness scoring across the slice |
+| Ask the Ontology | Cortex Analyst over the supply-chain semantic view |
+| Guided Demo | Five-step walkthrough, figures read live from the ontology |
+Scenario Studio | Build a disruption and see it bucketed by the response it needs |
+Ripple Map | Geography and topology side by side, synced, with step animation |
+Mitigation | Reroutes inside real capacity, what cannot be saved, and an AI you can interrogate |
 
 ---
 
 ## Scope rule
 
-A data product is in scope when **either** its business process is Design to
-Operate, **or** its line of business names Supply Chain, Manufacturing, Sourcing
-and Procurement, or R&D Engineering.
+A data product is in scope when **either**
 
-Line of business is a delimited multi-value string
-(`"Manufacturing,Supply Chain"`), so it is matched **per token** — matching the
-whole string would drop most of the cross-functional products.
+- its business process is Design to Operate (SAP's supply-chain process), **or**
+- its line of business names Supply Chain, Manufacturing, Sourcing and
+  Procurement, or R&D Engineering.
 
-This narrows the parent catalog from 334 products / 2,243 entities to 36 / 338.
+Line of business is a delimited multi-value string (`"Manufacturing,Supply Chain"`),
+so it is matched per token. Matching the whole string would drop every product
+carrying Supply Chain alongside another LOB — which is most of the interesting
+cross-functional ones.
+
+The identical rule is implemented twice, once in `tools/export_sc_ontology.py`
+for the app's JSON and once in `tools/deploy_sc_views.py` for the Snowflake
+views. `npm run deploy-views` asserts the two agree and fails if they drift,
+because otherwise Ask would answer over a different population than the pages
+display.
 
 ---
 
-## Built on
+## How the graph is actually shaped
 
-- [`sap-bdc-data-products`](https://github.com/dfreriks-snow/sap-bdc-data-products) — parent explorer; this is a focused fork
-- [`supplychain_ontology_agent`](https://github.com/sfc-gh-tjia/supplychain_ontology_agent) — ontology-as-data argument and traversal concept
-- [`sap-bdc-supply-chain-360`](https://github.com/dfreriks-snow/sap-bdc-supply-chain-360) — app pattern and docs structure
-- [`supply-chain-360-public`](https://github.com/dfreriks-snow/supply-chain-360-public) — static publishing pattern
-- AI309 Summit deck, *Enterprise Supply Chain Ontology Agent* — demo narrative
-- [SAP Business Accelerator Hub](https://api.sap.com/DataProducts) — upstream catalog
+Worth knowing before demoing traversal:
 
-Attribution in detail: [references](docs/06-references.md).
+- **No entity association crosses a data product boundary** — all 281 stay
+  inside their own product. An entity-level shortest path can never leave the
+  product it starts in.
+- The 269 connected entities form **94 separate components**, the largest
+  holding 14. **69 entities declare no associations at all.**
+- Cross-product linkage lives one level up, in the **ODM overlay**: 20 of 36
+  products connect, entirely through the canonical object **Plant**, which sits
+  at the centre of a star with degree 19.
+
+The Graph Traversal page states this on screen rather than implying a richer
+graph than exists.
+
+---
+
+## Snowflake objects
+
+Views over the parent ontology's `CORE` tables — no copies, so there is one
+source of truth:
+
+```
+SAP_BDC_ONTOLOGY.SUPPLY_CHAIN
+  V_PRODUCT          36    V_ENTITY_EDGE   281
+  V_ENTITY          338    V_ODM_EDGE       19
+  V_PROCESS           3    V_PROCESS_ROLLUP
+  SUPPLY_CHAIN_ONTOLOGY_MODEL   (semantic view: 17 facts, 11 metrics)
+```
+
+### Editing the semantic view
+
+Use the `cortex agent-studio` CLI, not a text editor:
+
+```bash
+cortex agent-studio sv-edit --file-path SUPPLY_CHAIN_ONTOLOGY_MODEL.sv.yaml \
+  --operations '[{"operation":"validate_yaml"}]'
+cortex agent-studio sv-deploy --file-path cortex_project/SUPPLY_CHAIN_ONTOLOGY_MODEL.sv.yaml \
+  --fqn SAP_BDC_ONTOLOGY.SUPPLY_CHAIN.SUPPLY_CHAIN_ONTOLOGY_MODEL
+```
+
+**Do not promote numeric columns to facts in this model.** Leave them as
+dimensions and expose aggregates as metrics — which is how `sv-generate`
+classifies them by default.
+
+Cortex Analyst does not query through `SEMANTIC_VIEW(...)`; it compiles the
+logical model into base-table SQL itself, and it omits fact columns from the CTE
+projection while still referencing them in the outer `SELECT`:
+
+```sql
+WITH __v_product AS (SELECT product_label FROM …V_PRODUCT)
+SELECT product_label, product_entity_count      -- not projected above
+FROM __v_product ORDER BY product_entity_count DESC
+```
+
+That fails with `invalid identifier 'PRODUCT_ENTITY_COUNT'`, even though the same
+fact resolves correctly in a hand-written `SEMANTIC_VIEW(… FACTS …)` query.
+Dimensions are always projected, so row-level numbers belong there.
+
+Two further traps found the hard way:
+
+- A fact whose **unqualified** expression names a column that exists on more than
+  one table in the model is dropped **silently** — `sv-edit` reports success and
+  the fact is simply absent. Three were lost this way. Qualifying the expression
+  (`V_PRODUCT.ENTITY_COUNT`) makes `sv-edit` accept it but produces SQL that
+  fails at run time, because the CTE is aliased `__v_product`. The fix is to make
+  the column name unique in the view — hence the `PRODUCT_` prefixes above.
+- `V_ENTITY.PROCESS_CODE` must not join to `V_PROCESS`. Entities reach their
+  process through their product; a direct join creates a second path to the same
+  dimension.
+
+Always count facts and metrics after editing, and run the example questions
+before calling it done — the model can validate and deploy clean and still fail
+every query.
+
+---
+
+## Public static build
+
+A credential-free snapshot for sharing, following the `supply-chain-360-public`
+pattern. `VITE_STATIC=1` makes the client read pre-baked JSON from
+`client/public/data/` instead of calling `/api`.
+
+```bash
+npm run dev            # in one shell — the baker reads from the live API
+npm run bake           # writes 93 snapshots to client/public/data/
+npm run build:static
+npm run preview:static # http://localhost:8899
+```
+
+Commit `client/public/data/*.json` — the Pages workflow refuses to deploy with
+fewer than 20 snapshots, since the site would otherwise build green and render
+empty.
+
+What the public build cannot do, and says so on screen:
+
+- **Ask** is disabled — Cortex Analyst needs Snowflake credentials.
+- **Shortest path** is hidden — the pair space is quadratic; only expansion from
+  the 24 most-connected entities is baked.
+
+Snapshot filenames fold percent-escapes to `-`, because a literal `%3A` in a
+filename is decoded back to `:` by the web server and would never match the file
+on disk. The rule is implemented in both `tools/bake_static.py` and
+`client/src/lib/api.ts` and the two must stay identical.
+
+---
+
+## Refreshing the data
+
+```bash
+npm run export-data     # re-slice from the parent BDC catalog
+npm run deploy-views    # re-assert Snowflake/JSON parity
+npm run bake            # re-snapshot for the public build
+```
+
+`export-data` reuses the parent explorer's own derivation functions
+(`ontology_builder.process_rollup`, `correlation`, `scorecard`, `insight_apps`,
+`semantic_roles`, `lens_summary`) over the filtered dictionary. Copying the
+parent's precomputed blocks instead would publish 334-product figures inside a
+36-product app.
