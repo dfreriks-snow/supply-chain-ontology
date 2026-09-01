@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sidebar, type PageId } from "./components/Sidebar";
 import { useQuery } from "./hooks/useQuery";
 import { api } from "./lib/api";
@@ -30,9 +30,31 @@ const TITLES: Record<PageId, string> = {
   mitigation: "Mitigation Plan",
 };
 
+const PAGE_IDS = Object.keys(TITLES) as PageId[];
+
+/** Read the page from the URL hash, falling back to overview for anything unknown. */
+function pageFromHash(): PageId {
+  const h = window.location.hash.replace(/^#\/?/, "");
+  return PAGE_IDS.includes(h as PageId) ? (h as PageId) : "overview";
+}
+
 export default function App() {
-  const [page, setPage] = useState<PageId>("overview");
+  // The page lives in the hash so every view can be linked to, bookmarked and
+  // handed to someone else — the dashboard app links straight to Scenario Studio.
+  const [page, setPage] = useState<PageId>(pageFromHash);
   const meta = useQuery(() => api.meta(), []);
+
+  // Push the current page into the URL, and follow the URL when it changes
+  // underneath us (back button, or a link pasted into the same tab).
+  useEffect(() => {
+    if (pageFromHash() !== page) window.location.hash = page;
+  }, [page]);
+
+  useEffect(() => {
+    const onHash = () => setPage(pageFromHash());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
 
   const render = () => {
     switch (page) {
