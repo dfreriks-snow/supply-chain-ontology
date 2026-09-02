@@ -130,8 +130,14 @@ def main():
         "Hurricane season starts in six weeks. What is our exposure, and what is the plan?")
 
     body(doc,
-         "This is the flagship script. It uses all three pages and ends in a decision with a "
-         "number attached. If you only ever learn one script, learn this one.")
+         "This is the flagship script. It uses all four scenario pages and ends in a decision "
+         "with a number attached. If you only ever learn one script, learn this one.")
+
+    callout(doc, "Before you start:",
+            ["Set **time per step** on the playback bar to 5s. The default 3s is fine for a "
+             "recording but too fast to talk over. At 5s the ripple runs 40 seconds and you "
+             "get room to narrate each beat.",
+             "The controls and the hop rail sit **below** the map on both animated pages."])
 
     beats(doc, [
         ["1", "Scenario Studio", "Point at the network summary without running anything yet.",
@@ -151,19 +157,32 @@ def main():
                              "whole world on its own.",
          "**Pause here.** “That lane goes to Penang. Penang is in Malaysia — the hurricane "
          "is in Texas. The map just pulled back to show you why that matters.”"],
-        ["5", "Ripple Map", "Read the panel above the maps, then click the **Penang** node.",
+        ["4c", "Ripple Map", "Point at the **KPI cards** under the map on beat 1c.",
+         "“Every step shows what changed, not just a total. Penang goes from 0% to 11% "
+         "impaired, buffer 12 days, exposed 48. Those are the three numbers that matter.”"],
+        ["4d", "Ripple Map", "Click **Explain this step**.",
+         "“And if anyone asks where the number comes from — it is right here. "
+         "100% of a $960,000 lane, and Penang's 11% is that lane's share of its inbound "
+         "volume. No black box.”"],
+        ["5", "Ripple Map", "Read the panel below the map, then click the **Penang** node.",
          "“Austin ships Penang its test fixtures. Penang holds 12 days of stock, so it runs "
          "fine until day 13 and then starves — and takes TSMC and Texas Instruments down "
          "with it. That is the effect no spreadsheet catches.”"],
         ["6", "Mitigation", "Show the two reroutes.",
          f"“Two moves recover {money(hur['protected'])} — {hur['protectedPct']}% of the "
          f"exposure — using plants we already own.”"],
-        ["7", "Mitigation", "Point at San Jose's utilisation bar.",
-         f"“But look at the cost. San Jose goes to "
-         f"{sj['utilizationAfter'] if sj else 98.6}% and has zero spare units left. "
-         f"The fix creates a new single point of failure. I would rather know that now than "
-         f"discover it in week three.”"],
-        ["8", "Mitigation", "Point at the blocked Die Sorting rows.",
+        ["7", "Optimization Map", "Press **Play the recovery**. One decision per beat.",
+         "“Now watch the fix happen. Each step shows the lane that died struck through and "
+         "the lane replacing it, plus what it costs the plant absorbing the work.”"],
+        ["7b", "Optimization Map", "Pause on **FIX 2**, point at the free-hours card.",
+         "**Pause here.** “San Jose had 282 spare hours. Fix one took 98. Fix two takes "
+         "another 147 and leaves 36 — 1.4% headroom. You can watch the buffer being spent.”"],
+        ["7c", "Optimization Map", "Let it run to **RESULT**.",
+         f"“{hur['protectedPct']}% protected, and San Jose ends at "
+         f"{sj['utilizationAfter'] if sj else 98.6}% with zero spare units left. "
+         f"The plan works and it moves our single point of failure rather than removing it. "
+         f"I would rather know that now than discover it in week three.”"],
+        ["8", "Optimization Map", "Point at the two **BLOCKED** beats.",
          f"“And {money(hur['unprotected'])} cannot be moved at any price. Penang is the only "
          f"plant that makes die sorting. That is not an operations problem, it is an "
          f"investment decision.”"],
@@ -338,13 +357,25 @@ def main():
         ["3", "Mitigation", "Show the two reroutes going to San Jose.",
          f"“San Jose is asked to take {sj['unitsAdded'] if sj else 5} units a month across two "
          f"product lines — {sj['hrsAdded'] if sj else 245.8} hours.”"],
-        ["4", "Mitigation", "Point at the before-and-after utilisation.",
-         f"“That moves San Jose from {sj['utilizationBefore'] if sj else 89.1}% to "
-         f"{sj['utilizationAfter'] if sj else 98.6}%, with zero spare units left. The tool "
-         f"flags it: above 95% there is no recovery room if anything else slips.”"],
+        ["4", "Optimization Map", "Set **time per step** to 8s, press **Play the recovery**.",
+         "“This is the ask arriving one line at a time, in hours. Slow it down — you want to "
+         "see each one land rather than read a total.”"],
+        ["4b", "Optimization Map", "Pause on **FIX 1**, read the free-hours card.",
+         "“First ask: 98 hours of the 282 I had free. Headroom drops to 7.1%. Still workable.”"],
+        ["4c", "Optimization Map", "Step to **FIX 2**.",
+         "“Second ask: another 147 hours. Now I am at 36 free hours and 1.4% headroom. "
+         "This is the point where I would say something in the meeting.”"],
+        ["4d", "Optimization Map", "Let it reach **RESULT** and point at the red badge.",
+         f"“{sj['utilizationBefore'] if sj else 89.1}% to "
+         f"{sj['utilizationAfter'] if sj else 98.6}%, zero spare units, flagged NEW WEAK POINT. "
+         f"The tool says it before I have to — above 95% there is no recovery room if anything "
+         f"else slips.”"],
         ["5", "Scenario Studio", "Run **Partial loss — Dresden Fab at 60%**.",
          "“Now the opposite answer. Dresden has the least headroom in the network, so when it "
          "is the one in trouble only 44.7% of the exposure can be moved.”"],
+        ["5b", "Optimization Map", "Play it and watch the progress bar stall.",
+         "“Same page, same method. The green bar is what gets defended and it stops well short. "
+         "That is what low headroom looks like when you need it.”"],
         ["6", "Mitigation", "Point at a blocked row citing no spare capacity.",
          "“When the answer is no, it says no and tells you how many units short. That is a "
          "conversation about overtime or displacing lower-value work — not a surprise in "

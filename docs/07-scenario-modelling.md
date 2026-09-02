@@ -190,8 +190,14 @@ Staged action pipeline by required response | Scenario Studio |
 Bullet charts for capacity and buffer | Studio, Mitigation |
 Before/after flow comparison | Mitigation |
 Step animation of the cascade | Ripple Map, lettered sub-steps; auto-plays in the Guided Demo |
-Camera framing per beat | Ripple Map, "follow with zoom" |
+Camera framing per beat | Ripple Map and Optimization Map, "follow with zoom" |
 Annotation pins on click targets | Guided Demo |
+Burned-in subtitle per beat | both animated maps, `SubtitleBand` |
+Popout KPI cards showing before → after | both animated maps, `KpiCards` |
+Arithmetic on demand per beat | both animated maps, `ExplainStep` |
+Replaced lane struck through beside its replacement | Optimization Map, change card |
+Recovery progress bar, protected against residual | Optimization Map |
+User-set seconds per step | both animated maps, `PaceControl` |
 
 **Gauges and pie charts are avoided deliberately** — the Ventagium guidance is
 explicit that radial angle encoding is read less accurately than length, and
@@ -262,6 +268,76 @@ Beats that impair a downstream site dwell longer during playback (3.4s against
 
 ---
 
+## The recovery as a movie
+
+The Ripple Map answers what breaks. The Optimization Map answers what to do about
+it, and needs a different spine: the optimizer emits a list of decisions, so each
+decision becomes one beat — the lane that died, the lane replacing it, and what the
+plant picking up the work gives up.
+
+For the Austin hurricane:
+
+| Beat | What | Numbers |
+|---|---|---|
+| BEFORE | $15.09M of customer revenue exposed | nothing done yet |
+| FIX 1 | GlobalFoundries: Austin -> San Jose | +$8.40M, free hours 282 -> 183.7, headroom 7.1% |
+| FIX 2 | Micron: Austin -> San Jose | +$5.40M, free hours 183.7 -> 36.2, headroom 1.4% |
+| BLOCKED 1 | TSMC | -$794K, no alternative plant makes this category |
+| BLOCKED 2 | Texas Instruments | -$497K, same |
+| RESULT | 91.4% protected | San Jose HQ 89.1% -> 98.6%, 0 spare left |
+
+Three decisions in that design are worth recording.
+
+**Beats follow the optimizer's own order, not value order.** The optimizer is
+greedy: it spends the biggest exposure first, and the spare capacity each step
+consumes is genuinely unavailable to later steps. Re-sorting the beats would
+misrepresent why a later reroute failed.
+
+**Per-step versus final state was checked, not assumed.** `hrsAvailableBefore` and
+`headroomPctAfter` are computed inside that greedy loop, so they are per-decision
+and safe to show as a step delta — which is why the free-hour count visibly runs
+down 282 -> 183.7 -> 36.2. `capacityAfter` is the aggregate end state for a plant,
+so it appears only on the summary; showing it on FIX 1 would credit FIX 1 with
+FIX 2's consumption.
+
+**The ending is the finding, not the total.** San Jose absorbs exactly its five
+spare units and lands at 98.6% utilisation with zero spare. The plan works and it
+relocates the network's single point of failure rather than removing it. A second
+disruption at San Jose during the window would have no answer. The summary beat says
+so, and the capacity card carries a `NEW WEAK POINT` badge.
+
+The baseline reads $15.09M rather than the $16.05M on the Ripple Map, deliberately:
+only customer-facing revenue is protectable. Inter-plant flows are the mechanism of
+the damage, not the loss, so the optimizer scores customer lanes and the beat's
+"why" explains the difference.
+
+## Reading a beat
+
+Both animated maps narrate the same way, through `components/StepCards.tsx`:
+
+- a **subtitle** burned across the bottom of the map, one line, timed with the camera
+- **popout KPI cards** that re-animate on every beat, showing `before -> after` where
+  something changed rather than only a running total
+- **"Explain this step"**, which opens the mechanism and the arithmetic —
+  `100% x $8,400,000 = $8,400,000`, dependency shares, the buffer subtraction
+
+`ExplainStep` positions itself in viewport coordinates and clamps to the window. It
+first anchored to the button's left edge, which pushed the 480px panel 320px
+off-screen at every width tested, because the button sits on the right of the beat
+header. Measuring also lets it flip upward when there is under 240px below, and a
+fixed position escapes any clipping ancestor.
+
+Playback pace is user-set in seconds per step (1.5s to 20s), persisted across pages,
+because someone talking over the animation wants it to stay slow when they move
+between the two maps. The choice is a *base*: beats that carry the reasoning — a hop
+that impairs a downstream plant, an exposure that cannot be rerouted, the summary —
+hold 1.45x longer. Flattening that would make the explanatory beats as fleeting as
+the routine ones. The bar shows the resulting total runtime (24s at the 3s default,
+158s at 20s), so the pace can be chosen against the real number rather than by trial.
+
+The transport controls and the hop rail sit **below** the map on both pages, so the
+map stays in view while it is being driven.
+
 ## Running it
 
 ```bash
@@ -273,8 +349,9 @@ npm run dev
 ```
 
 Pages: **Scenario Studio** (build and run), **Ripple Map** (both views, synced
-selection, sub-step player), **Mitigation** (plan, before/after, AI), and the
-**Guided Demo**, which walks the hurricane end to end in seven annotated steps.
+selection, sub-step player), **Mitigation** (plan, before/after, AI),
+**Optimization Map** (the recovery played beat by beat), and the **Guided Demo**,
+which walks the hurricane end to end in seven annotated steps.
 
 The Guided Demo embeds the real components with numbered pins on the click targets,
 a per-step action list, the one number each step should leave behind, and a button

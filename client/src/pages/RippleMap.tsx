@@ -4,6 +4,8 @@ import { WorldMap } from "../components/WorldMap";
 import { useNetwork, useScenario, useScenarioMaps } from "../hooks/useScenario";
 import { hopColor, money, severityColor } from "../lib/severity";
 import { buildSubSteps, groupByHop, revealedFlows, revealedHop } from "../lib/substeps";
+import { ExplainStep, KpiCards, PaceControl, SubtitleBand } from "../components/StepCards";
+import { dwellMs, usePace } from "../lib/pace";
 
 /**
  * The ripple, geographically and topologically, stepped one lane at a time.
@@ -26,6 +28,7 @@ export default function RippleMap() {
   const [playing, setPlaying] = useState(false);
   const [showReroutes, setShowReroutes] = useState(false);
   const [zoom, setZoom] = useState(true);
+  const [paceSec, setPaceSec] = usePace();
 
   const steps = useMemo(() => buildSubSteps(result), [result]);
   const hopGroups = useMemo(() => groupByHop(steps), [steps]);
@@ -38,11 +41,11 @@ export default function RippleMap() {
     if (!playing || !steps.length) return;
     if (idx >= steps.length - 1) { setPlaying(false); return; }
     // Longer on beats that impair a downstream site: those carry the explanation
-    // that makes the next hop make sense.
-    const dwell = steps[idx]?.impairs ? 3400 : 2300;
-    const t = setTimeout(() => setIdx((i) => i + 1), dwell);
+    // that makes the next hop make sense. The base comes from the user's pace.
+    const t = setTimeout(() => setIdx((i) => i + 1),
+                         dwellMs(paceSec, Boolean(steps[idx]?.impairs)));
     return () => clearTimeout(t);
-  }, [playing, idx, steps]);
+  }, [playing, idx, steps, paceSec]);
 
   const shownFlows = useMemo(() => revealedFlows(steps, idx), [steps, idx]);
   const shownHop = useMemo(() => revealedHop(steps, idx), [steps, idx]);
@@ -85,17 +88,72 @@ export default function RippleMap() {
 
   const pctThrough = Math.round(((idx + 1) / steps.length) * 100);
 
+  // How long a full play-through takes at the chosen pace, so the pace choice can
+  // be made against the actual runtime rather than by trial and error.
+  const runSeconds = Math.round(
+    steps.reduce((t, s2) => t + dwellMs(paceSec, Boolean(s2.impairs)), 0) / 1000);
+
   return (
     <div className="space-y-4">
-      {/* ---- controls ---------------------------------------------------- */}
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-white p-3">
+      {/* ---- what scenario this is --------------------------------------- */}
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2">
         <div className="text-sm font-semibold text-slate-800">
           {disruption?.label ?? "Scenario"}
         </div>
         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
           {disruption?.durationDays}d · {Math.round((disruption?.severity ?? 0) * 100)}%
         </span>
+        <span className="ml-auto text-[11px] text-slate-500">
+          {money(result.totals.valueAtRisk)} at risk · {result.totals.pctOfNetwork}% of network
+        </span>
+      </div>
 
+      {/* ---- the two synced views ---------------------------------------- */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="rounded-lg border border-gray-200 bg-white p-3">
+          <div className="mb-2 flex items-baseline gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Geography — where it happens
+            </span>
+            {zoom && focus.length > 0 && (
+              <span className="text-[10px] text-sky-600">following step {step.id}</span>
+            )}
+          </div>
+          <div className="relative">
+            <WorldMap nodes={net.nodes} flows={net.flows}
+              affected={affected} impaired={impaired}
+              reroutes={showReroutes ? plan?.reroutes : []}
+              revealHop={shownHop}
+              highlightFlows={step.kind === "summary" ? undefined : new Set(step.flowIds)}
+              focusNodes={focus}
+              selected={selected} onSelect={setSelected} height={400} />
+            <SubtitleBand
+              text={step.subtitle}
+              badge={step.id === "0" ? "START"
+                   : step.id === "sum" ? "SUMMARY"
+                   : `STEP ${step.id.toUpperCase()}`} />
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-gray-200 bg-white p-3">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Topology — how far from the event
+          </div>
+          <RippleGraph nodes={net.nodes} flows={net.flows}
+            affected={affected} impaired={impaired}
+            reroutes={showReroutes ? plan?.reroutes : []}
+            revealHop={shownHop} spof={spof}
+            highlightFlows={step.kind === "summary" ? undefined : new Set(step.flowIds)}
+            selected={selected} onSelect={setSelected} height={400} />
+        </div>
+      </div>
+
+      {/* ---- player chrome: transport + step rail, under the map ------- */}
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+        <div className="flex flex-wrap items-center gap-3 px-3 py-2">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          playback
+        </span>
         <div className="ml-auto flex items-center gap-2">
           <button onClick={() => { setIdx(0); setPlaying(true); }} disabled={playing}
             className="rounded bg-sky-600 px-3 py-1.5 text-xs font-medium text-white
@@ -119,6 +177,8 @@ export default function RippleMap() {
                        hover:bg-slate-50 disabled:opacity-40">
             Next ›
           </button>
+          <PaceControl seconds={paceSec} onChange={setPaceSec}
+            heavyNote="hops that impair a downstream plant hold longer" />
           <label className="flex items-center gap-1.5 text-xs text-slate-600">
             <input type="checkbox" checked={zoom} onChange={(e) => setZoom(e.target.checked)} />
             follow with zoom
@@ -130,9 +190,7 @@ export default function RippleMap() {
           </label>
         </div>
       </div>
-
-      {/* ---- the stepper: hops, each broken into lettered beats ----------- */}
-      <div className="rounded-lg border border-gray-200 bg-white p-3">
+        <div className="border-t border-gray-200 px-3 py-2">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           {hopGroups.map(({ hop, steps: ss }) => (
             <div key={hop} className="flex items-center gap-1.5">
@@ -166,12 +224,17 @@ export default function RippleMap() {
           </button>
           <span className="ml-auto text-[11px] text-slate-400">
             step {idx + 1} of {steps.length}
+            <span className="ml-2 text-slate-300">·</span>
+            <span className="ml-2" title="Full play-through at the chosen pace">
+              {runSeconds < 60 ? `${runSeconds}s` : `${Math.floor(runSeconds / 60)}m ${runSeconds % 60}s`} total
+            </span>
           </span>
         </div>
         <div className="mt-2 h-1 w-full overflow-hidden rounded bg-slate-100">
           <div className="h-full bg-sky-500 transition-all duration-500"
                style={{ width: `${pctThrough}%` }} />
         </div>
+      </div>
       </div>
 
       {/* ---- WHAT IS HAPPENING RIGHT NOW --------------------------------- */}
@@ -202,6 +265,9 @@ export default function RippleMap() {
               {money(step.valueAtRisk)}
             </span>
           )}
+          <div className={step.valueAtRisk > 0 ? "" : "ml-auto"}>
+            <ExplainStep why={step.why} detail={step.detail} />
+          </div>
         </div>
 
         <p className="mt-2 max-w-4xl text-sm leading-relaxed text-slate-700">{step.what}</p>
@@ -212,6 +278,11 @@ export default function RippleMap() {
             <p className="max-w-4xl text-sm leading-relaxed text-slate-700">{step.consequence}</p>
           </div>
         )}
+
+        {/* Popout cards: what this beat changed, re-animated on every step. */}
+        <div className="mt-3">
+          <KpiCards kpis={step.kpis} beatKey={step.id} />
+        </div>
 
         <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 border-t border-sky-200 pt-2 text-[11px]">
           <span className="text-slate-600">
@@ -228,39 +299,6 @@ export default function RippleMap() {
               {step.impairs.node_name} now <b>{Math.round(step.impairs.impairment * 100)}%</b> impaired
             </span>
           )}
-        </div>
-      </div>
-
-      {/* ---- the two synced views ---------------------------------------- */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-3">
-          <div className="mb-2 flex items-baseline gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Geography — where it happens
-            </span>
-            {zoom && focus.length > 0 && (
-              <span className="text-[10px] text-sky-600">following step {step.id}</span>
-            )}
-          </div>
-          <WorldMap nodes={net.nodes} flows={net.flows}
-            affected={affected} impaired={impaired}
-            reroutes={showReroutes ? plan?.reroutes : []}
-            revealHop={shownHop}
-            highlightFlows={step.kind === "summary" ? undefined : new Set(step.flowIds)}
-            focusNodes={focus}
-            selected={selected} onSelect={setSelected} height={400} />
-        </div>
-
-        <div className="rounded-lg border border-gray-200 bg-white p-3">
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Topology — how far from the event
-          </div>
-          <RippleGraph nodes={net.nodes} flows={net.flows}
-            affected={affected} impaired={impaired}
-            reroutes={showReroutes ? plan?.reroutes : []}
-            revealHop={shownHop} spof={spof}
-            highlightFlows={step.kind === "summary" ? undefined : new Set(step.flowIds)}
-            selected={selected} onSelect={setSelected} height={400} />
         </div>
       </div>
 

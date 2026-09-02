@@ -13,6 +13,7 @@ import Traverse from "./pages/Traverse";
 import Demo from "./pages/Demo";
 import ScenarioStudio from "./pages/ScenarioStudio";
 import RippleMap from "./pages/RippleMap";
+import OptimizeMap from "./pages/OptimizeMap";
 import Mitigation from "./pages/Mitigation";
 
 const TITLES: Record<PageId, string> = {
@@ -28,6 +29,7 @@ const TITLES: Record<PageId, string> = {
   scenario: "Scenario Studio",
   ripple: "Ripple Map — geography and topology",
   mitigation: "Mitigation Plan",
+  optimize: "Optimization Map — the recovery, step by step",
 };
 
 const PAGE_IDS = Object.keys(TITLES) as PageId[];
@@ -70,6 +72,7 @@ export default function App() {
       case "scenario": return <ScenarioStudio />;
       case "ripple": return <RippleMap />;
       case "mitigation": return <Mitigation />;
+      case "optimize": return <OptimizeMap />;
     }
   };
 

@@ -55,7 +55,7 @@ tools/export_scenario_network.py ──▶ data/sc_network.json   19 nodes · 27
         │            ▼
         │    services/reason.ts ──▶ AI_COMPLETE   narrative and what-ifs
         │
-        └──▶ Scenario Studio · Ripple Map · Mitigation · Guided Demo
+        └──▶ Scenario Studio · Ripple Map · Mitigation · Optimization Map · Guided Demo
 ```
 
 ---
@@ -218,8 +218,23 @@ made the fact bug in [findings](05-findings.md) findable at all.
 
 ### Client — React + Vite + Cytoscape, port 5179
 
-Twelve pages. Nine cover the ontology; three cover scenarios (Scenario Studio,
-Ripple Map, Mitigation), and the Guided Demo walks the scenario end to end.
+Thirteen pages. Eight cover the ontology; four cover scenarios (Scenario Studio,
+Ripple Map, Mitigation, Optimization Map), and the Guided Demo walks the scenario
+end to end.
+
+The two animated pages share their step furniture rather than duplicating it:
+
+| Module | Job |
+| --- | --- |
+| `lib/substeps.ts` | Decomposes a ripple into narrated beats — subtitle, mechanism, KPI deltas, arithmetic |
+| `lib/mitsteps.ts` | Does the same for a mitigation plan: one beat per reroute, per blocked exposure, plus a summary |
+| `lib/pace.ts` | Seconds-per-step playback pace, persisted, with a longer hold on beats that explain something |
+| `components/StepCards.tsx` | `SubtitleBand`, `KpiCards`, `ExplainStep`, `PaceControl` — used by both players |
+
+`ExplainStep` positions itself in viewport coordinates and clamps to the window.
+Anchoring it to the button's left edge pushed the panel off-screen, because the
+button sits on the right of the beat header; measuring also lets it flip upward
+when there is little room below and escapes any clipping ancestor.
 
 | Module | Responsibility |
 |---|---|

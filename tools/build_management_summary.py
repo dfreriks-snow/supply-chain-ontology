@@ -35,6 +35,8 @@ def main():
     try:
         scen = json.loads(pathlib.Path("/tmp/scenario_facts.json").read_text())
         net = json.loads(pathlib.Path("/tmp/network_facts.json").read_text())
+        # capacityAfter is per-plant end state, only carried in the persona facts
+        pf = json.loads(pathlib.Path("/tmp/persona_facts.json").read_text())
     except FileNotFoundError as e:
         sys.exit(f"missing input: {e}. Query the running app first.")
 
@@ -63,6 +65,9 @@ def main():
 
     total_products = 36
     nt = net["totals"]
+    # the plant the hurricane plan leaves tightest — the "new weak point"
+    sj = next((c for c in pf["hurricane"]["capacityAfter"]
+               if "San Jose" in c["plantName"]), None)
 
     # ---- executive summary ----------------------------------------------
     h1(doc, "Executive summary")
@@ -106,8 +111,9 @@ def main():
          "6 pages"],
         ["2. Scenario modelling",
          "Disruption simulation across five event types, with ripple visualisation on a world "
-         "map and network graph side by side, plus a mitigation optimiser and an AI briefing.",
-         "3 pages"],
+         "map and network graph side by side, a mitigation optimiser, an animated recovery that "
+         "plays the plan one decision at a time, and an AI briefing.",
+         "4 pages"],
         ["3. Publication",
          "Documented public repository and a credential-free web build, so the work can be "
          "shared with customers and colleagues without granting Snowflake access.",
@@ -161,6 +167,41 @@ def main():
     doc.add_page_break()
 
     # ---- scenario library ------------------------------------------------
+    # ---- the recovery player ---------------------------------------------
+    h1(doc, "Seeing the plan, not just the number")
+    body(doc,
+         "A recovery percentage is easy to state and hard to trust. The Optimization Map plays "
+         "the plan out as a sequence, one decision per step, so the reasoning is visible rather "
+         "than asserted.")
+
+    table(doc, ["Step", "What it shows", "Numbers"],
+          [["Before", "The exposure, untouched", f"{money(hur['revenueAtRisk'])} of customer revenue at risk"],
+           ["Fix 1", "GlobalFoundries moves Austin to San Jose",
+            "+$8.40M protected, San Jose free hours 282 to 183.7, headroom 7.1%"],
+           ["Fix 2", "Micron moves Austin to San Jose",
+            "+$5.40M protected, free hours 183.7 to 36.2, headroom 1.4%"],
+           ["Blocked", "Two customers with no alternative source",
+            f"{money(hur['unprotected'])} unrecoverable at any price"],
+           ["Result", "The plan, and what it cost",
+            f"{hur['protectedPct']}% protected, San Jose "
+            f"{sj['utilizationBefore'] if sj else 89.1}% to "
+            f"{sj['utilizationAfter'] if sj else 98.6}% utilised, "
+            f"{sj['spareUnitsLeft'] if sj else 0} spare units left"]],
+          [0.85, 3.25, 2.75], size=9)
+
+    body(doc,
+         "The closing step is the part worth taking to a planning conversation. San Jose absorbs "
+         "exactly its five spare units and ends fully committed, which means the plan works and "
+         "it relocates the network's single point of failure rather than removing it. A second "
+         "disruption at San Jose inside the same window would have no answer. The application "
+         "flags the plant itself with a NEW WEAK POINT badge rather than leaving it to be "
+         "noticed.", size=9.5)
+
+    body(doc,
+         "Each step also carries the arithmetic behind it on demand, and playback speed is "
+         "adjustable from 1.5 to 20 seconds per step, so the same screen serves a two-minute "
+         "executive walkthrough and a half-hour working session.", size=9.5)
+
     h1(doc, "Scenario library")
     body(doc,
          "Six scenarios ship ready to run. The spread matters: some disruptions are largely "
@@ -212,7 +253,8 @@ def main():
          "High"],
         ["CFO / FP&A",
          "What revenue is exposed, and how much of it is defensible?",
-         "Quantified value at risk, protected versus residual, per scenario — usable in risk "
+         "Quantified value at risk, protected versus residual, watched accumulating decision by "
+         "decision on the Optimization Map — usable in risk "
          "disclosure and contingency planning.",
          "High"],
         ["Plant Manager",

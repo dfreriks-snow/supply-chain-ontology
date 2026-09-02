@@ -239,3 +239,31 @@ Two things to know before starting it:
 - Run `verify-scenario` before trusting any figure. It caught a unit-rate mismatch
   and a lane closure that silently reported zero exposure, and both looked entirely
   plausible on screen.
+
+## Step 9 — narrated beats on both maps
+
+Add the shared step furniture and the recovery player.
+
+```
+client/src/lib/substeps.ts        enrich beats: subtitle, why, kpis[], detail[]
+client/src/lib/mitsteps.ts        NEW  one beat per reroute / blocked / summary
+client/src/lib/pace.ts            NEW  persisted seconds-per-step, 1.45x on heavy beats
+client/src/components/StepCards.tsx  NEW  SubtitleBand, KpiCards, ExplainStep, PaceControl
+client/src/pages/OptimizeMap.tsx  NEW  the recovery, beat by beat
+client/src/pages/RippleMap.tsx    wire subtitle + cards + explain; controls moved below the map
+client/src/index.css              kpi-in and lane-draw keyframes
+client/src/App.tsx                route + title for `optimize`
+client/src/components/Sidebar.tsx nav entry; PageId gains "optimize"
+```
+
+No server or SQL change is needed — the Optimization Map reads the `plan` already
+returned by `POST /api/scenario/simulate`, so the baked static snapshots continue to
+work unchanged.
+
+Verify the narrative against the optimizer rather than by eye:
+
+```bash
+# cumulative protected must equal plan.totals.valueProtected,
+# and residual must equal valueUnprotected
+node --input-type=module -e "..."   # see docs/05-findings.md
+```

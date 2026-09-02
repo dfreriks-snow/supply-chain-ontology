@@ -62,8 +62,9 @@ PORT=3009
 | Ask the Ontology | Cortex Analyst over the supply-chain semantic view |
 | Guided Demo | Seven-step walkthrough of the hurricane scenario, with click targets pinned on live components |
 | **Scenario Studio** | Build a disruption from five event types; results bucketed by the response each needs |
-| **Ripple Map** | Geography and topology side by side, selection synced, cascade played one lane at a time with the camera following each beat |
+| **Ripple Map** | Geography and topology side by side, selection synced, cascade played one lane at a time with the camera following each beat. Each beat carries a subtitle, popout KPI cards showing what changed, and an "explain this step" popover with the arithmetic |
 | **Mitigation** | Reroutes inside real capacity, what cannot be saved and why, plus an AI you can interrogate |
+| **Optimization Map** | The recovery as a movie: one beat per reroute, the replaced lane struck through and the new one drawn in, with the receiving plant's headroom before and after. Ends on the plant the plan leaves tightest |
 
 ---
 

@@ -323,3 +323,38 @@ The filter now includes `package.json` and `package-lock.json`.
 one ran `npm ci` while ignoring the file `npm ci` reads. It also produced a
 particularly misleading state — a repository where the newest commit was the fix and
 the newest *run* was the failure.
+
+## Lessons from building the recovery movie
+
+**Check whether a number is per-step or final before showing it as a delta.** The
+optimizer returns both shapes. `hrsAvailableBefore` and `headroomPctAfter` are
+computed inside the greedy loop and are per-decision; `capacityAfter` is the
+aggregate end state for a plant. Putting the aggregate on step 1 would have credited
+step 1 with every later step's capacity consumption, and the number would have
+looked plausible — 98.6% on the first reroute reads fine unless you know San Jose
+was at 89.1% before it. Reading the producing code took a minute and removed a
+class of silent error.
+
+**Reconcile a derived narrative against the source totals.** The beat sequence
+accumulates protected value independently of `plan.totals`. Summing it gives
+$13,800,000 against `valueProtected` of $13,800,000, and residual $1,291,035
+against `valueUnprotected` of $1,291,035. Both matched first time, but the check is
+the only thing that would have caught a beat being dropped or double-counted.
+
+**Anchor popovers by measurement, not by a CSS side.** The "explain this step" panel
+used `left-0`, which put a 480px panel 320px off-screen at every width from 1024 to
+1920, because the trigger sits on the right of the beat header. Switching to
+`right-0` would have fixed those cases and broken any layout where the trigger moves
+left. Measuring the trigger and clamping to the viewport handles both, flips upward
+when space below is tight, and escapes clipping ancestors.
+
+**A speed control should scale the existing weighting, not replace it.** The players
+already held longer on beats carrying explanation. Exposing a flat interval would
+have made those beats as fleeting as the routine ones; exposing a base that the
+1.45x weighting multiplies keeps what made the sequence readable. Showing the
+resulting total runtime matters too — "3s per step" means nothing until you know it
+produces a 24s play-through.
+
+**Float subtraction leaks into the UI.** `hrsAvailableBefore - hrsRequired` rendered
+as `36.19999999999999`. Rounding at the point of display, not in the model, keeps
+the arithmetic exact and the card readable.
