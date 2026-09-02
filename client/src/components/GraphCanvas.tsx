@@ -33,10 +33,19 @@ export function GraphCanvas({
     }
     cy.layout({
       name: "fcose", quality: "default", animate: false, randomize: true,
-      nodeSeparation: 110, nodeRepulsion: 8000, gravity: 0.3, numIter: 1800,
+      // labels sit below product and entity circles and the layout does not
+      // account for label extents, so separation is generous to limit overlap
+      nodeSeparation: 165, nodeRepulsion: 11000, gravity: 0.25, numIter: 2200,
       packComponents: true,
       idealEdgeLength: (e: any) => (e.data("kind") === "contain" ? 60 : 150),
     } as any).run();
+    // fcose fits the node bounding box, which excludes labels, so names on the
+    // outermost nodes were cropped at the container edge. Re-fit with padding
+    // wide enough for a label.
+    requestAnimationFrame(() => {
+      cy.resize();
+      cy.fit(undefined, 60);
+    });
   };
 
   useEffect(() => {
@@ -82,19 +91,61 @@ export function GraphCanvas({
               "border-width": 0, "overlay-opacity": 0,
             },
           },
+          // Process nodes size themselves to their label. Previously a fixed box
+          // held white text that was wider than the box, so the overflow landed
+          // on the light canvas and vanished — "Design to Operate" read as
+          // "ign to Ope", the only part still over the coloured fill.
           {
             selector: 'node[kind = "process"]',
             style: {
-              shape: "round-rectangle", "font-size": 12, "font-weight": 700,
-              color: "#ffffff", "text-max-width": 110,
+              shape: "round-rectangle",
+              width: "label",
+              height: "label",
+              padding: "14px",
+              "font-size": 12,
+              "font-weight": 700,
+              color: "#ffffff",
+              "text-wrap": "wrap",
+              "text-max-width": 150,
+              "text-valign": "center",
+              "text-halign": "center",
             },
           },
+          // Product and entity circles are far smaller than their names, so the
+          // label sits below the node in dark text rather than pretending to fit
+          // inside it. A white outline keeps it readable where it crosses an edge.
           {
             selector: 'node[kind = "product"]',
-            style: { shape: "ellipse", "border-width": 2, "border-color": "#ffffff" },
+            style: {
+              shape: "ellipse",
+              "border-width": 2,
+              "border-color": "#ffffff",
+              "text-valign": "bottom",
+              "text-margin-y": 4,
+              "font-size": 9,
+              "font-weight": 600,
+              color: "#1e293b",
+              "text-outline-width": 2.5,
+              "text-outline-color": "#f8fafc",
+              "text-outline-opacity": 1,
+              "text-max-width": 110,
+            },
           },
           { selector: 'node[?mapped]', style: { "border-width": 2, "border-color": "#16a34a" } },
-          { selector: 'node[kind = "entity"]', style: { shape: "ellipse", "font-size": 7 } },
+          {
+            selector: 'node[kind = "entity"]',
+            style: {
+              shape: "ellipse",
+              "text-valign": "bottom",
+              "text-margin-y": 3,
+              "font-size": 8,
+              color: "#334155",
+              "text-outline-width": 2,
+              "text-outline-color": "#f8fafc",
+              "text-outline-opacity": 1,
+              "text-max-width": 95,
+            },
+          },
 
           // ---- ontology class graph -------------------------------------
           // Two lines per node: the class name and its count. A node has exactly
