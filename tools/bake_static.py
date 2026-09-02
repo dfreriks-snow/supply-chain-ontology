@@ -17,13 +17,16 @@ Run the app first (npm run dev), then:  python3 tools/bake_static.py
 """
 import json
 import pathlib
+import os
 import re
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
 
-HOST = "http://localhost:3009"
+# Overridable so the baker can point at a dev server on another port without
+# editing this file: BAKE_HOST=http://localhost:3011 python3 tools/bake_static.py
+HOST = os.environ.get("BAKE_HOST", "http://localhost:3009")
 OUT = pathlib.Path(__file__).resolve().parent.parent / "client" / "public" / "data"
 
 # Traversal is baked per seed, so the public build offers expansion from the
@@ -91,7 +94,21 @@ def main() -> None:
              f"/hubs?limit={HUB_COUNT}", "/hubs?limit=30",
              "/entities?q=&limit=400", "/entities?q=&limit=300", "/graph",
              # the scenario pages need the network and the preset list
-             "/scenario/network", "/scenario/presets", "/scenario/reasoning/status"]
+             "/scenario/network", "/scenario/presets", "/scenario/reasoning/status",
+             # the ontology model page: schema plus one graph per toggle position
+             "/ontology/schema",
+             "/ontology/class-graph?mode=both",
+             "/ontology/class-graph?mode=abstract",
+             "/ontology/class-graph?mode=concrete"]
+
+    # one snapshot per ontology class, for the detail panel. Driven off the
+    # schema rather than a hardcoded list so a new class is picked up
+    # automatically on the next bake.
+    try:
+        classes = [c["name"] for c in fetch("/ontology/schema")["classes"]]
+        paths += [f"/ontology/class/{urllib.parse.quote(n)}" for n in classes]
+    except urllib.error.HTTPError as e:
+        print(f"  SKIP  ontology class snapshots -> HTTP {e.code}")
 
     # one graph per process, matching the sidebar's single-process filters
     procs = [p["code"] for p in fetch("/processes")]

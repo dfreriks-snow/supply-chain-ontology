@@ -1,0 +1,621 @@
+name: SUPPLY_CHAIN_METADATA_MODEL
+description: "Governance and provenance layer. Answers questions about the ontology\
+  \ itself rather than about the supply chain: which classes exist, what they map\
+  \ to physically, which relations are abstract or inferred, which inference rules\
+  \ are enabled and how many edges they derive, which properties and interfaces are\
+  \ declared, and who has permissions. Also covers the SAP Business Data Cloud catalog\
+  \ (data products, CDS entities, business processes) as the record of what source\
+  \ data exists. Use for 'how is this modelled', 'where does this come from' and coverage\
+  \ questions, never for supply-chain values."
+tables:
+  - name: ONT_CLASS
+    base_table:
+      database: SAP_SUPPLY_CHAIN
+      schema: ONTOLOGY
+      table: ONT_CLASS
+    primary_key:
+      columns:
+        - CLASS_NAME
+    dimensions:
+      - name: CLASS_NAME
+        expr: CLASS_NAME
+        data_type: VARCHAR
+      - name: PARENT_CLASS_NAME
+        expr: PARENT_CLASS_NAME
+        data_type: VARCHAR
+      - name: IS_ABSTRACT
+        expr: IS_ABSTRACT
+        data_type: BOOLEAN
+      - name: DESCRIPTION
+        expr: DESCRIPTION
+        data_type: VARCHAR
+      - name: ONTOLOGY_NAME
+        expr: ONTOLOGY_NAME
+        data_type: VARCHAR
+      - name: TYPE_CLASS
+        expr: TYPE_CLASS
+        data_type: VARCHAR
+    time_dimensions:
+      - name: CREATED_AT
+        expr: CREATED_AT
+        data_type: TIMESTAMP_NTZ
+  - name: ONT_RELATION_DEF
+    base_table:
+      database: SAP_SUPPLY_CHAIN
+      schema: ONTOLOGY
+      table: ONT_RELATION_DEF
+    primary_key:
+      columns:
+        - REL_NAME
+    dimensions:
+      - name: REL_NAME
+        expr: REL_NAME
+        data_type: VARCHAR
+      - name: DOMAIN_CLASS
+        expr: DOMAIN_CLASS
+        data_type: VARCHAR
+      - name: RANGE_CLASS
+        expr: RANGE_CLASS
+        data_type: VARCHAR
+      - name: CARDINALITY
+        expr: CARDINALITY
+        data_type: VARCHAR
+      - name: IS_HIERARCHICAL
+        expr: IS_HIERARCHICAL
+        data_type: BOOLEAN
+      - name: IS_TRANSITIVE
+        expr: IS_TRANSITIVE
+        data_type: BOOLEAN
+      - name: INVERSE_REL_NAME
+        expr: INVERSE_REL_NAME
+        data_type: VARCHAR
+      - name: DESCRIPTION
+        expr: DESCRIPTION
+        data_type: VARCHAR
+      - name: ONTOLOGY_NAME
+        expr: ONTOLOGY_NAME
+        data_type: VARCHAR
+  - name: ONT_CLASS_MAP
+    base_table:
+      database: SAP_SUPPLY_CHAIN
+      schema: ONTOLOGY
+      table: ONT_CLASS_MAP
+    primary_key:
+      columns:
+        - CLASS_NAME
+        - MAP_ID
+    dimensions:
+      - name: MAP_ID
+        expr: MAP_ID
+        data_type: VARCHAR
+      - name: CLASS_NAME
+        expr: CLASS_NAME
+        data_type: VARCHAR
+      - name: SOURCE_DATABASE
+        expr: SOURCE_DATABASE
+        data_type: VARCHAR
+      - name: SOURCE_SCHEMA
+        expr: SOURCE_SCHEMA
+        data_type: VARCHAR
+      - name: SOURCE_TABLE
+        expr: SOURCE_TABLE
+        data_type: VARCHAR
+      - name: FILTER_COL
+        expr: FILTER_COL
+        data_type: VARCHAR
+      - name: FILTER_VAL
+        expr: FILTER_VAL
+        data_type: VARCHAR
+      - name: ID_EXPR
+        expr: ID_EXPR
+        data_type: VARCHAR
+      - name: NAME_EXPR
+        expr: NAME_EXPR
+        data_type: VARCHAR
+      - name: SUBTYPE_EXPR
+        expr: SUBTYPE_EXPR
+        data_type: VARCHAR
+      - name: ONTOLOGY_NAME
+        expr: ONTOLOGY_NAME
+        data_type: VARCHAR
+  - name: ONT_REL_MAP
+    base_table:
+      database: SAP_SUPPLY_CHAIN
+      schema: ONTOLOGY
+      table: ONT_REL_MAP
+    primary_key:
+      columns:
+        - MAP_ID
+        - REL_NAME
+    dimensions:
+      - name: MAP_ID
+        expr: MAP_ID
+        data_type: VARCHAR
+      - name: REL_NAME
+        expr: REL_NAME
+        data_type: VARCHAR
+      - name: SOURCE_DATABASE
+        expr: SOURCE_DATABASE
+        data_type: VARCHAR
+      - name: SOURCE_SCHEMA
+        expr: SOURCE_SCHEMA
+        data_type: VARCHAR
+      - name: SOURCE_TABLE
+        expr: SOURCE_TABLE
+        data_type: VARCHAR
+      - name: SRC_ID_EXPR
+        expr: SRC_ID_EXPR
+        data_type: VARCHAR
+      - name: DST_ID_EXPR
+        expr: DST_ID_EXPR
+        data_type: VARCHAR
+      - name: FILTER_COL
+        expr: FILTER_COL
+        data_type: VARCHAR
+      - name: FILTER_VAL
+        expr: FILTER_VAL
+        data_type: VARCHAR
+      - name: ONTOLOGY_NAME
+        expr: ONTOLOGY_NAME
+        data_type: VARCHAR
+  - name: ONT_PROPERTY
+    base_table:
+      database: SAP_SUPPLY_CHAIN
+      schema: ONTOLOGY
+      table: ONT_PROPERTY
+    primary_key:
+      columns:
+        - CLASS_NAME
+        - PROP_NAME
+    dimensions:
+      - name: CLASS_NAME
+        expr: CLASS_NAME
+        data_type: VARCHAR
+      - name: PROP_NAME
+        expr: PROP_NAME
+        data_type: VARCHAR
+      - name: DATA_TYPE
+        expr: DATA_TYPE
+        data_type: VARCHAR
+      - name: SHARED_PROP_NAME
+        expr: SHARED_PROP_NAME
+        data_type: VARCHAR
+      - name: IS_REQUIRED
+        expr: IS_REQUIRED
+        data_type: BOOLEAN
+      - name: IS_INDEXED
+        expr: IS_INDEXED
+        data_type: BOOLEAN
+      - name: DESCRIPTION
+        expr: DESCRIPTION
+        data_type: VARCHAR
+  - name: ONT_SHARED_PROPERTY
+    base_table:
+      database: SAP_SUPPLY_CHAIN
+      schema: ONTOLOGY
+      table: ONT_SHARED_PROPERTY
+    primary_key:
+      columns:
+        - SHARED_PROP_NAME
+    dimensions:
+      - name: SHARED_PROP_NAME
+        expr: SHARED_PROP_NAME
+        data_type: VARCHAR
+      - name: BASE_TYPE
+        expr: BASE_TYPE
+        data_type: VARCHAR
+      - name: DESCRIPTION
+        expr: DESCRIPTION
+        data_type: VARCHAR
+      - name: DEFAULT_FORMAT
+        expr: DEFAULT_FORMAT
+        data_type: VARCHAR
+  - name: ONT_INTERFACE
+    base_table:
+      database: SAP_SUPPLY_CHAIN
+      schema: ONTOLOGY
+      table: ONT_INTERFACE
+    primary_key:
+      columns:
+        - INTERFACE_NAME
+    dimensions:
+      - name: INTERFACE_NAME
+        expr: INTERFACE_NAME
+        data_type: VARCHAR
+      - name: DESCRIPTION
+        expr: DESCRIPTION
+        data_type: VARCHAR
+  - name: ONT_INTERFACE_IMPL
+    base_table:
+      database: SAP_SUPPLY_CHAIN
+      schema: ONTOLOGY
+      table: ONT_INTERFACE_IMPL
+    primary_key:
+      columns:
+        - INTERFACE_NAME
+        - CLASS_NAME
+    dimensions:
+      - name: INTERFACE_NAME
+        expr: INTERFACE_NAME
+        data_type: VARCHAR
+      - name: CLASS_NAME
+        expr: CLASS_NAME
+        data_type: VARCHAR
+  - name: ONT_OBJECT_SOURCE
+    base_table:
+      database: SAP_SUPPLY_CHAIN
+      schema: ONTOLOGY
+      table: ONT_OBJECT_SOURCE
+    primary_key:
+      columns:
+        - ONTOLOGY_NAME
+        - OBJ_TYPE
+        - SOURCE_TABLE
+    dimensions:
+      - name: ONTOLOGY_NAME
+        expr: ONTOLOGY_NAME
+        data_type: VARCHAR
+      - name: OBJ_TYPE
+        expr: OBJ_TYPE
+        data_type: VARCHAR
+      - name: SOURCE_TABLE
+        expr: SOURCE_TABLE
+        data_type: VARCHAR
+      - name: FILTER_SQL
+        expr: FILTER_SQL
+        data_type: VARCHAR
+      - name: MAPPING
+        expr: MAPPING
+        data_type: VARIANT
+  - name: ONT_LINK_SOURCE
+    base_table:
+      database: SAP_SUPPLY_CHAIN
+      schema: ONTOLOGY
+      table: ONT_LINK_SOURCE
+    primary_key:
+      columns:
+        - ONTOLOGY_NAME
+        - LINK_TYPE
+        - SOURCE_TABLE
+    dimensions:
+      - name: ONTOLOGY_NAME
+        expr: ONTOLOGY_NAME
+        data_type: VARCHAR
+      - name: LINK_TYPE
+        expr: LINK_TYPE
+        data_type: VARCHAR
+      - name: SOURCE_TABLE
+        expr: SOURCE_TABLE
+        data_type: VARCHAR
+      - name: FILTER_SQL
+        expr: FILTER_SQL
+        data_type: VARCHAR
+      - name: MAPPING
+        expr: MAPPING
+        data_type: VARIANT
+  - name: ONT_RULE
+    base_table:
+      database: SAP_SUPPLY_CHAIN
+      schema: ONTOLOGY
+      table: ONT_RULE
+    primary_key:
+      columns:
+        - RULE_ID
+    dimensions:
+      - name: RULE_ID
+        expr: RULE_ID
+        data_type: VARCHAR
+      - name: RULE_KIND
+        expr: RULE_KIND
+        data_type: VARCHAR
+      - name: TARGET_REL
+        expr: TARGET_REL
+        data_type: VARCHAR
+      - name: SOURCE_REL_1
+        expr: SOURCE_REL_1
+        data_type: VARCHAR
+      - name: SOURCE_REL_2
+        expr: SOURCE_REL_2
+        data_type: VARCHAR
+      - name: INVERSE_OF
+        expr: INVERSE_OF
+        data_type: VARCHAR
+      - name: DESCRIPTION
+        expr: DESCRIPTION
+        data_type: VARCHAR
+      - name: IS_ENABLED
+        expr: IS_ENABLED
+        data_type: BOOLEAN
+    time_dimensions:
+      - name: TS_CREATED
+        expr: TS_CREATED
+        data_type: TIMESTAMP_NTZ
+  - name: REL_EDGE_INFERRED
+    base_table:
+      database: SAP_SUPPLY_CHAIN
+      schema: ONTOLOGY
+      table: REL_EDGE_INFERRED
+    primary_key:
+      columns:
+        - REL_NAME
+        - SRC_ID
+        - DST_ID
+        - RULE_ID
+    dimensions:
+      - name: REL_NAME
+        expr: REL_NAME
+        data_type: VARCHAR
+      - name: SRC_ID
+        expr: SRC_ID
+        data_type: VARCHAR
+      - name: DST_ID
+        expr: DST_ID
+        data_type: VARCHAR
+      - name: INFERENCE_KIND
+        expr: INFERENCE_KIND
+        data_type: VARCHAR
+      - name: RULE_ID
+        expr: RULE_ID
+        data_type: VARCHAR
+    time_dimensions:
+      - name: EFFECTIVE_START
+        expr: EFFECTIVE_START
+        data_type: DATE
+      - name: EFFECTIVE_END
+        expr: EFFECTIVE_END
+        data_type: DATE
+      - name: COMPUTED_AT
+        expr: COMPUTED_AT
+        data_type: TIMESTAMP_NTZ
+    facts:
+      - name: WEIGHT
+        expr: WEIGHT
+        data_type: FLOAT
+  - name: ONT_ROLE
+    base_table:
+      database: SAP_SUPPLY_CHAIN
+      schema: ONTOLOGY
+      table: ONT_ROLE
+    primary_key:
+      columns:
+        - ONTOLOGY_NAME
+        - ONT_ROLE_NAME
+    dimensions:
+      - name: ONTOLOGY_NAME
+        expr: ONTOLOGY_NAME
+        data_type: VARCHAR
+      - name: ONT_ROLE_NAME
+        expr: ONT_ROLE_NAME
+        data_type: VARCHAR
+      - name: DESCRIPTION
+        expr: DESCRIPTION
+        data_type: VARCHAR
+  - name: ONT_PERMISSION
+    base_table:
+      database: SAP_SUPPLY_CHAIN
+      schema: ONTOLOGY
+      table: ONT_PERMISSION
+    primary_key:
+      columns:
+        - ONTOLOGY_NAME
+        - SUBJECT_KIND
+        - SUBJECT_NAME
+        - ONT_ROLE_NAME
+        - PRIVILEGE
+    dimensions:
+      - name: ONTOLOGY_NAME
+        expr: ONTOLOGY_NAME
+        data_type: VARCHAR
+      - name: SUBJECT_KIND
+        expr: SUBJECT_KIND
+        data_type: VARCHAR
+      - name: SUBJECT_NAME
+        expr: SUBJECT_NAME
+        data_type: VARCHAR
+      - name: ONT_ROLE_NAME
+        expr: ONT_ROLE_NAME
+        data_type: VARCHAR
+      - name: PRIVILEGE
+        expr: PRIVILEGE
+        data_type: VARCHAR
+  - name: ONT_ONTOLOGY
+    base_table:
+      database: SAP_SUPPLY_CHAIN
+      schema: ONTOLOGY
+      table: ONT_ONTOLOGY
+    primary_key:
+      columns:
+        - ONTOLOGY_NAME
+    dimensions:
+      - name: ONTOLOGY_NAME
+        expr: ONTOLOGY_NAME
+        data_type: VARCHAR
+      - name: DESCRIPTION
+        expr: DESCRIPTION
+        data_type: VARCHAR
+      - name: VERSION
+        expr: VERSION
+        data_type: VARCHAR
+      - name: DEFAULT_SCHEMA
+        expr: DEFAULT_SCHEMA
+        data_type: VARCHAR
+      - name: CREATED_BY
+        expr: CREATED_BY
+        data_type: VARCHAR
+      - name: IS_ACTIVE
+        expr: IS_ACTIVE
+        data_type: BOOLEAN
+    time_dimensions:
+      - name: CREATED_AT
+        expr: CREATED_AT
+        data_type: TIMESTAMP_NTZ
+  - name: V_PRODUCT
+    base_table:
+      database: SAP_BDC_ONTOLOGY
+      schema: SUPPLY_CHAIN
+      table: V_PRODUCT
+    dimensions:
+      - name: PRODUCT_TECH
+        expr: PRODUCT_TECH
+        data_type: VARCHAR
+      - name: PRODUCT_LABEL
+        expr: PRODUCT_LABEL
+        data_type: VARCHAR
+      - name: PROCESS_CODE
+        expr: PROCESS_CODE
+        data_type: VARCHAR
+      - name: LINE_OF_BUSINESS
+        expr: LINE_OF_BUSINESS
+        data_type: VARCHAR
+      - name: SOURCE_APPLICATION
+        expr: SOURCE_APPLICATION
+        data_type: VARCHAR
+      - name: SOURCE_SYSTEMS
+        expr: SOURCE_SYSTEMS
+        data_type: VARCHAR
+      - name: INDUSTRIES
+        expr: INDUSTRIES
+        data_type: VARCHAR
+      - name: SUITE_PACKAGE
+        expr: SUITE_PACKAGE
+        data_type: VARCHAR
+      - name: PROVENANCE
+        expr: PROVENANCE
+        data_type: VARCHAR
+      - name: CATEGORY
+        expr: CATEGORY
+        data_type: VARCHAR
+      - name: HAS_SEMANTIC_MODEL
+        expr: HAS_SEMANTIC_MODEL
+        data_type: BOOLEAN
+      - name: PRODUCT_ENTITY_COUNT
+        expr: PRODUCT_ENTITY_COUNT
+        data_type: NUMBER
+      - name: PRODUCT_ASSOCIATION_COUNT
+        expr: PRODUCT_ASSOCIATION_COUNT
+        data_type: NUMBER
+      - name: PRODUCT_CROSS_ASSOC
+        expr: PRODUCT_CROSS_ASSOC
+        data_type: NUMBER
+      - name: CANONICAL_OBJECTS
+        expr: CANONICAL_OBJECTS
+        data_type: VARCHAR
+      - name: CROSS_PROCESS_REFS
+        expr: CROSS_PROCESS_REFS
+        data_type: VARCHAR
+      - name: ODM_REFS
+        expr: ODM_REFS
+        data_type: VARCHAR
+      - name: ROLE_FACT_COUNT
+        expr: ROLE_FACT_COUNT
+        data_type: NUMBER
+      - name: ROLE_DIMENSION_COUNT
+        expr: ROLE_DIMENSION_COUNT
+        data_type: NUMBER
+      - name: ROLE_TEXT_COUNT
+        expr: ROLE_TEXT_COUNT
+        data_type: NUMBER
+      - name: ROLE_HIERARCHY_COUNT
+        expr: ROLE_HIERARCHY_COUNT
+        data_type: NUMBER
+      - name: ROLE_VALUE_HELP_COUNT
+        expr: ROLE_VALUE_HELP_COUNT
+        data_type: NUMBER
+      - name: ROLE_OTHER_COUNT
+        expr: ROLE_OTHER_COUNT
+        data_type: NUMBER
+    facts:
+      - name: CENTRALITY
+        expr: CENTRALITY
+        data_type: FLOAT
+  - name: V_ENTITY
+    base_table:
+      database: SAP_BDC_ONTOLOGY
+      schema: SUPPLY_CHAIN
+      table: V_ENTITY
+    dimensions:
+      - name: ENTITY_ID
+        expr: ENTITY_ID
+        data_type: VARCHAR
+      - name: ENTITY_NAME
+        expr: ENTITY_NAME
+        data_type: VARCHAR
+      - name: ENTITY_LABEL
+        expr: ENTITY_LABEL
+        data_type: VARCHAR
+      - name: PRODUCT_TECH
+        expr: PRODUCT_TECH
+        data_type: VARCHAR
+      - name: PROCESS_CODE
+        expr: PROCESS_CODE
+        data_type: VARCHAR
+      - name: ELEMENT_COUNT
+        expr: ELEMENT_COUNT
+        data_type: NUMBER
+      - name: SEMANTIC_ROLE
+        expr: SEMANTIC_ROLE
+        data_type: VARCHAR
+      - name: MODELING_PATTERN
+        expr: MODELING_PATTERN
+        data_type: VARCHAR
+      - name: CANONICAL_OBJECT
+        expr: CANONICAL_OBJECT
+        data_type: VARCHAR
+      - name: ASSOCIATION_COUNT
+        expr: ASSOCIATION_COUNT
+        data_type: NUMBER
+  - name: V_PROCESS
+    base_table:
+      database: SAP_BDC_ONTOLOGY
+      schema: SUPPLY_CHAIN
+      table: V_PROCESS
+    dimensions:
+      - name: PROCESS_CODE
+        expr: PROCESS_CODE
+        data_type: VARCHAR
+      - name: PROCESS_NAME
+        expr: PROCESS_NAME
+        data_type: VARCHAR
+relationships:
+  - name: ONT_CLASS_MAP_TO_ONT_CLASS
+    left_table: ONT_CLASS_MAP
+    right_table: ONT_CLASS
+    join_type: inner
+    relationship_type: many_to_one
+    relationship_columns:
+      - left_column: CLASS_NAME
+        right_column: CLASS_NAME
+  - name: REL_EDGE_INFERRED_TO_ONT_RULE
+    left_table: REL_EDGE_INFERRED
+    right_table: ONT_RULE
+    join_type: inner
+    relationship_type: many_to_one
+    relationship_columns:
+      - left_column: RULE_ID
+        right_column: RULE_ID
+verified_queries:
+  - name: 0;1
+    question: Which ontology classes map to which physical tables?
+    sql: SELECT CLASS_NAME, SOURCE_DATABASE, SOURCE_SCHEMA, SOURCE_TABLE, FILTER_COL,
+      FILTER_VAL FROM ont_class_map ORDER BY CLASS_NAME
+    verified_at: 1788377977
+    verified_by: Semantic Model Generator
+  - name: 1;1
+    question: Which inference rules are enabled and how many edges do they produce?
+    sql: SELECT r.RULE_ID, r.RULE_KIND, r.TARGET_REL, r.IS_ENABLED, COUNT(e.SRC_ID)
+      AS EDGES_DERIVED FROM ont_rule AS r LEFT JOIN rel_edge_inferred AS e ON e.RULE_ID
+      = r.RULE_ID GROUP BY 1, 2, 3, 4
+    verified_at: 1788377977
+    verified_by: Semantic Model Generator
+  - name: 2;1
+    question: Which SAP data products expose the most CDS entities?
+    sql: SELECT PRODUCT_LABEL, PRODUCT_ENTITY_COUNT FROM v_product ORDER BY PRODUCT_ENTITY_COUNT
+      DESC LIMIT 20
+    verified_at: 1788377977
+    verified_by: Semantic Model Generator
+  - name: 3;1
+    question: Which classes have no physical mapping?
+    sql: SELECT c.CLASS_NAME, c.IS_ABSTRACT FROM ont_class AS c LEFT JOIN ont_class_map
+      AS m ON m.CLASS_NAME = c.CLASS_NAME WHERE m.CLASS_NAME IS NULL
+    verified_at: 1788377977
+    verified_by: Semantic Model Generator

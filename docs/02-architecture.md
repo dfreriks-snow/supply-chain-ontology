@@ -2,6 +2,14 @@
 
 How the pieces fit, and which decisions were load-bearing.
 
+> The data flow below covers the **SAP BDC catalog** half of the app. A second,
+> independent flow serves the **ontology** — 15 classes and 11 relations in
+> `SAP_SUPPLY_CHAIN.ONTOLOGY`, exported by `tools/export_ontology_schema.py` and
+> served on separate `/api/ontology/*` routes. See
+> [08-ontology-layer.md](08-ontology-layer.md). The two are deliberately not
+> merged: a catalog says what data exists, an ontology says what kinds of thing
+> exist, and collapsing them is the defect the ontology layer was added to fix.
+
 ---
 
 ## Data flow

@@ -259,9 +259,81 @@ export interface MitigationPlan {
 export interface SimulateResponse { result: ScenarioResult; plan: MitigationPlan; }
 export interface Preset extends Disruption { id: string; blurb: string; }
 
+// ---- ontology schema: the CLASS layer -------------------------------------
+// Mirrors server/src/services/ontologySchema.ts. Distinct from the BDC catalog
+// types above: those describe what data exists, these describe what kinds of
+// thing exist.
+export type ClassMode = "abstract" | "concrete" | "both";
+
+export interface ClassSource {
+  database: string; schema: string; table: string;
+  filter_col: string | null; filter_val: string | null;
+}
+export interface OntClass {
+  name: string;
+  parent: string | null;
+  is_abstract: boolean;
+  description: string | null;
+  depth: number | null;
+  descendants: number | null;
+  instances: number;
+  source: ClassSource | null;
+}
+export interface OntRelation {
+  name: string;
+  domain: string;
+  range: string;
+  cardinality: string | null;
+  is_hierarchical: boolean;
+  is_transitive: boolean;
+  inverse: string | null;
+  description: string | null;
+  is_stored: boolean;
+  is_inferred: boolean;
+  is_abstract: boolean;
+  rule: { id: string; kind: string; enabled: boolean; edges: number } | null;
+}
+export interface AbstractRollup {
+  view: string;
+  total: number;
+  breakdown: { type: string; count: number }[];
+}
+export interface StackLayer {
+  layer: string; name: string; detail: string; note: string; objects: number;
+}
+export interface OntologySchema {
+  ontology: string;
+  source: string;
+  stack: StackLayer[];
+  counts: Record<string, number>;
+  classes: OntClass[];
+  relations: OntRelation[];
+  abstract_rollup: Record<string, AbstractRollup>;
+}
+export interface ClassDetail {
+  cls: OntClass;
+  children: OntClass[];
+  ancestors: { ancestor: string; depth: number }[];
+  descendants: { descendant: string; depth: number; path: string }[];
+  properties: { name: string; type: string; required: boolean }[];
+  relations_out: OntRelation[];
+  relations_in: OntRelation[];
+  rollup: AbstractRollup | null;
+}
+
 export const api = {
   meta: () => get<Meta>("/meta"),
   graph: (o: GraphOpts) => get<{ elements: any[] }>(`/graph${gq(o)}`),
+
+  // ---- ontology schema (the class layer) --------------------------------
+  ontologySchema: () => get<OntologySchema>("/ontology/schema"),
+  classGraph: (mode: ClassMode) =>
+    get<{ mode: ClassMode; elements: any[]; counts: Record<string, number> }>(
+      `/ontology/class-graph?mode=${mode}`,
+    ),
+  classDetail: (name: string) =>
+    get<ClassDetail>(`/ontology/class/${encodeURIComponent(name)}`),
+
   products: (o: GraphOpts) => get<ProductRow[]>(`/products${gq({ ...o, expand: null, cross: undefined })}`),
   processes: () => get<any[]>("/processes"),
   correlation: () => get<any>("/correlation"),

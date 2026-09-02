@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { loadOntology, buildGraph } from "../services/ontology.js";
+import { loadSchema, buildClassGraph, classDetail, type ClassMode }
+  from "../services/ontologySchema.js";
 import { ask, askConfigured, semanticView } from "../services/analyst.js";
 import { traverse, shortestPath, hubs, topology } from "../services/traverse.js";
 import { loadNetwork, simulate, type Disruption, type DisruptionKind }
@@ -71,6 +73,46 @@ apiRouter.get("/api/graph", wrap((req, res) => {
     provenance: q.provenance ? String(q.provenance) : undefined,
   });
   res.json({ elements });
+}));
+
+// ---------------------------------------------------------------------------
+// Ontology schema — the CLASS layer, distinct from /api/graph above.
+//
+// /api/graph serves the SAP BDC catalog: which data products and CDS entities
+// exist. These routes serve the ontology proper: which kinds of thing exist and
+// how they relate. Keeping them on separate paths keeps the distinction visible
+// instead of burying it behind one overloaded endpoint.
+// ---------------------------------------------------------------------------
+
+apiRouter.get("/api/ontology/schema", wrap((_req, res) => {
+  const sch = loadSchema();
+  res.json({
+    ontology: sch.ontology,
+    source: sch.source,
+    stack: sch.stack,
+    counts: sch.counts,
+    classes: sch.classes,
+    relations: sch.relations,
+    abstract_rollup: sch.abstract_rollup,
+  });
+}));
+
+apiRouter.get("/api/ontology/class-graph", wrap((req, res) => {
+  const sch = loadSchema();
+  const raw = String(req.query.mode ?? "both");
+  const mode: ClassMode =
+    raw === "abstract" || raw === "concrete" ? raw : "both";
+  res.json({ mode, elements: buildClassGraph(sch, mode), counts: sch.counts });
+}));
+
+apiRouter.get("/api/ontology/class/:name", wrap((req, res) => {
+  const sch = loadSchema();
+  const detail = classDetail(sch, String(req.params.name));
+  if (!detail) {
+    res.status(404).json({ error: `No such class: ${req.params.name}` });
+    return;
+  }
+  res.json(detail);
 }));
 
 apiRouter.get("/api/products", wrap((req, res) => {

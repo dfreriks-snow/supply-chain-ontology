@@ -6,15 +6,30 @@ import fcose from "cytoscape-fcose";
 cytoscape.use(fcose);
 
 export function GraphCanvas({
-  elements, onSelectNode, height = 640,
+  elements, onSelectNode, height = 640, layout = "fcose",
 }: {
   elements: any[];
   onSelectNode?: (data: any | null) => void;
   height?: number;
+  // A class hierarchy reads as a tree, so the ontology page asks for a
+  // top-down breadthfirst layout. The catalog graph stays on force-directed,
+  // where there is no meaningful root to hang everything from.
+  layout?: "fcose" | "tree";
 }) {
   const cyRef = useRef<cytoscape.Core | null>(null);
 
   const runLayout = (cy: cytoscape.Core) => {
+    if (layout === "tree") {
+      cy.layout({
+        name: "breadthfirst", directed: true, animate: false,
+        spacingFactor: 1.15, padding: 30, grid: false,
+        // subClassOf points child -> parent, so roots are the classes with no
+        // outgoing subClassOf edge. Cytoscape wants the reverse for a
+        // top-down tree, hence the explicit roots.
+        roots: cy.nodes().filter((n) => n.outgoers('edge[kind = "subClassOf"]').length === 0),
+      } as any).run();
+      return;
+    }
     cy.layout({
       name: "fcose", quality: "default", animate: false, randomize: true,
       nodeSeparation: 110, nodeRepulsion: 8000, gravity: 0.3, numIter: 1800,
@@ -26,7 +41,7 @@ export function GraphCanvas({
   useEffect(() => {
     const cy = cyRef.current;
     if (cy) runLayout(cy);
-  }, [elements]);
+  }, [elements, layout]);
 
   return (
     <div className="w-full overflow-hidden rounded-xl border border-gray-200 bg-slate-50"
@@ -79,6 +94,67 @@ export function GraphCanvas({
           },
           { selector: 'node[?mapped]', style: { "border-width": 2, "border-color": "#16a34a" } },
           { selector: 'node[kind = "entity"]', style: { shape: "ellipse", "font-size": 7 } },
+
+          // ---- ontology class graph -------------------------------------
+          // Abstract classes are drawn hollow with a dashed border: they have
+          // no instances of their own, so a filled node would imply substance
+          // they do not have. Concrete classes are filled and sized by
+          // instance count.
+          {
+            selector: 'node[kind = "class"]',
+            style: {
+              shape: "round-rectangle", "font-size": 11, "font-weight": 600,
+              "text-max-width": 120, "border-width": 2, "border-color": "#ffffff",
+            },
+          },
+          {
+            selector: 'node[kind = "class"][?abstract]',
+            style: {
+              "background-opacity": 0.12, "background-color": "#1B3A57",
+              "border-width": 2, "border-color": "#1B3A57",
+              "border-style": "dashed", color: "#1B3A57",
+            },
+          },
+          {
+            selector: 'node[kind = "class"][!abstract]',
+            style: { color: "#ffffff", "border-color": "#ffffff" },
+          },
+          {
+            selector: 'edge[kind = "subClassOf"]',
+            style: {
+              width: 2, "line-color": "#1B3A57", "curve-style": "taxi",
+              "taxi-direction": "downward", "target-arrow-shape": "triangle",
+              "target-arrow-color": "#1B3A57", opacity: 0.75,
+            },
+          },
+          {
+            selector: 'edge[kind = "relation"]',
+            style: {
+              width: 1.5, "line-color": "#29B5E8", "curve-style": "bezier",
+              "target-arrow-shape": "triangle", "target-arrow-color": "#29B5E8",
+              label: "data(label)", "font-size": 7, color: "#0369a1",
+              "text-rotation": "autorotate", "text-background-color": "#ffffff",
+              "text-background-opacity": 0.85, "text-background-padding": 2,
+              opacity: 0.8,
+            },
+          },
+          // Inferred relations are dashed — nothing stores them, they are
+          // derived by rule, and the graph should not claim otherwise.
+          {
+            selector: 'edge[kind = "relation"][?inferred]',
+            style: {
+              "line-style": "dashed", "line-color": "#a855f7",
+              "target-arrow-color": "#a855f7", color: "#7e22ce",
+            },
+          },
+          {
+            selector: 'edge[kind = "relation"][?abstract]',
+            style: {
+              "line-style": "dotted", "line-color": "#94a3b8",
+              "target-arrow-color": "#94a3b8", color: "#475569",
+            },
+          },
+
           {
             selector: 'edge[kind = "contain"]',
             style: { width: 1, "line-color": "#d8dee8", "line-style": "dashed", "curve-style": "bezier", opacity: 0.4 },

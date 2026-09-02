@@ -1,14 +1,18 @@
 import { Network, Workflow, Grid3x3, ShieldCheck, LayoutDashboard, Boxes,
          MessageSquare, Share2, PlayCircle, CloudLightning, Globe2,
-         Wrench , Route} from "lucide-react";
+         Wrench , Route, Layers} from "lucide-react";
 
-export type PageId = "overview" | "graph" | "traverse" | "processes" | "usecases"
+export type PageId = "overview" | "model" | "graph" | "traverse" | "processes" | "usecases"
                    | "correlation" | "coverage" | "ask" | "demo"
                    | "scenario" | "ripple" | "optimize" | "mitigation";
 
 const NAV: { id: PageId; label: string; icon: any }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "graph", label: "Ontology Graph", icon: Network },
+  // The ontology proper sits above the catalog: it is the model the catalog's
+  // contents conform to, and the page most people actually want when they say
+  // "show me the ontology".
+  { id: "model", label: "Ontology Model", icon: Layers },
+  { id: "graph", label: "SAP BDC Catalog", icon: Network },
   { id: "traverse", label: "Graph Traversal", icon: Share2 },
   { id: "processes", label: "Business Processes", icon: Workflow },
   { id: "usecases", label: "Use Cases / Insight Apps", icon: Boxes },

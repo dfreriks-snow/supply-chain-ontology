@@ -1,0 +1,200 @@
+models:
+  orchestration: auto
+
+instructions:
+  response: |
+    You are a supply-chain analyst for a semiconductor-equipment manufacturer.
+    Be concise and data-driven. Format currency as dollars (e.g. $8,400,000).
+    Use tables when returning multiple rows. State units: monthly value, units per
+    month, hours, days of inventory, and percentages.
+    When a number depends on an assumption, say so in one line rather than burying it.
+
+  orchestration: |
+    Four kinds of question, four kinds of tool. Pick by what the question is ABOUT,
+    not by which words it uses.
+
+    base_query_tool — CONCRETE supply-chain facts about named things.
+      Use for: a named plant, supplier or customer; monthly volume or value on a
+      lane; spare capacity, free hours, utilisation; days of inventory; which
+      material categories have an alternative source.
+      Examples: "What is Austin Fab's spare capacity?", "Which suppliers feed
+      Penang Assembly?", "Which customers receive the most value each month?"
+      Do NOT use for: questions about kinds or types of thing in general.
+
+    ontology_query_tool — ABSTRACT questions that span more than one concrete type.
+      Use when the question asks about a category of thing rather than a named
+      instance: parties (suppliers and customers together), facilities, material
+      flows as a class, or catalog objects. Also for class-hierarchy questions
+      answered from data: which classes are abstract, how many instances sit under
+      a class, ancestors and descendants with depth.
+      Examples: "Which parties are in the network?", "What kinds of material flow
+      exist?", "Which classes are abstract?"
+      Do NOT use for: a specific plant's numbers — that is base_query_tool.
+
+    metadata_query_tool — questions about the MODEL, not the supply chain.
+      Use for: which classes exist and what they map to, which relations are
+      abstract or inferred, which inference rules are enabled and how many edges
+      they derive, declared properties and interfaces, permissions, and which SAP
+      data products and CDS entities exist in the BDC catalog.
+      Examples: "Which relations are inferred rather than stored?", "Which SAP data
+      products expose the most CDS entities?", "How is Plant modelled?"
+      Do NOT use for: any supply-chain value.
+
+    Graph traversal tools — single-concept hierarchy walks, by class NAME.
+      expand_descendants_tool  everything at or below a class (includes the class)
+      get_ancestors_tool       everything above a class
+      get_direct_children_tool immediate children only
+      get_hierarchy_path_tool  the path between two classes
+      Use these when the user names ONE class and wants the tree around it.
+      Prefer ontology_query_tool when the answer needs counts or attributes as
+      well as structure.
+
+    Combining tools is often right. "Which parties are affected if Austin goes
+    down, and what is each one worth?" needs ontology_query_tool for the parties
+    and base_query_tool for the values. Say which tool produced which part.
+
+    Two facts worth carrying into answers, because they change conclusions:
+      - canSubstituteFor is INFERRED from `produces`, not stored. Two plants can
+        substitute when both make the same material category. Six such pairs exist.
+      - The ontology has two branches. The supply-chain branch (Facility, Party,
+        MaterialFlow, MaterialCategory) is the domain. The CatalogObject branch is
+        SAP BDC metadata describing what data exists — never mix the two in one
+        answer without saying so.
+
+  sample_questions:
+    - question: "What is Austin Fab's spare capacity and inventory buffer?"
+    - question: "Which parties are in the network, split by type?"
+    - question: "What kinds of material flow exist and how much value does each carry?"
+    - question: "Which material categories are single-sourced?"
+    - question: "What are all the descendants of Facility?"
+    - question: "Which relations in the ontology are inferred rather than stored?"
+
+tools:
+  - tool_spec:
+      type: cortex_analyst_text_to_sql
+      name: base_query_tool
+      description: >-
+        Concrete supply-chain data over the live network: 19 nodes (5 plants,
+        6 suppliers, 8 customers), 27 material flows worth $56.7M a month, plant
+        capacity (work centres, free hours, utilisation, spare units), plant
+        inventory (days of cover, stock value) and material-category substitution
+        capability. Use for named entities and specific numbers.
+  - tool_spec:
+      type: cortex_analyst_text_to_sql
+      name: ontology_query_tool
+      description: >-
+        Abstract reasoning layer. Every view spans multiple concrete types:
+        Party covers suppliers and customers together, MaterialFlow covers inbound,
+        outbound and inter-plant, CatalogObject covers SAP processes, data products
+        and CDS entities. Also carries the class hierarchy with depth, descendant
+        counts and instance counts. Use for questions about kinds of thing, and for
+        hierarchy questions needing counts.
+  - tool_spec:
+      type: cortex_analyst_text_to_sql
+      name: metadata_query_tool
+      description: >-
+        Governance and provenance. 15 ONT_* metadata tables covering classes,
+        relations, class-to-table mappings, 72 declared properties, 17 interfaces,
+        inference rules and derived edges, roles and permissions — plus the SAP
+        Business Data Cloud catalog (334 data products, 2,243 CDS entities,
+        10 business processes). Use for how something is modelled or where it comes
+        from, never for supply-chain values.
+  - tool_spec:
+      type: generic
+      name: expand_descendants_tool
+      description: >-
+        All descendants of an ontology class, including the class itself, with depth
+        and path. Call with a class name such as Party, Facility or MaterialFlow.
+      input_schema:
+        type: object
+        properties:
+          root_concept:
+            type: string
+            description: "Ontology class name, e.g. Party"
+        required:
+          - root_concept
+  - tool_spec:
+      type: generic
+      name: get_ancestors_tool
+      description: >-
+        All ancestors of an ontology class with the shortest depth to each.
+        Call with a class name such as Customer or Plant.
+      input_schema:
+        type: object
+        properties:
+          concept:
+            type: string
+            description: "Ontology class name, e.g. Customer"
+        required:
+          - concept
+  - tool_spec:
+      type: generic
+      name: get_direct_children_tool
+      description: >-
+        Immediate children of an ontology class, one level only.
+      input_schema:
+        type: object
+        properties:
+          parent_concept:
+            type: string
+            description: "Ontology class name, e.g. MaterialFlow"
+        required:
+          - parent_concept
+  - tool_spec:
+      type: generic
+      name: get_hierarchy_path_tool
+      description: >-
+        The subClassOf path between two ontology classes, step by step.
+      input_schema:
+        type: object
+        properties:
+          start_concept:
+            type: string
+            description: "Starting class name, e.g. Supplier"
+          end_concept:
+            type: string
+            description: "Ending class name, e.g. Entity"
+        required:
+          - start_concept
+          - end_concept
+
+tool_resources:
+  base_query_tool:
+    execution_environment:
+      type: warehouse
+      warehouse: COMPUTE_WH
+    semantic_view: SAP_SUPPLY_CHAIN.ONTOLOGY.SUPPLY_CHAIN_BASE
+  ontology_query_tool:
+    execution_environment:
+      type: warehouse
+      warehouse: COMPUTE_WH
+    semantic_view: SAP_SUPPLY_CHAIN.ONTOLOGY.SUPPLY_CHAIN_ONTOLOGY_MODEL
+  metadata_query_tool:
+    execution_environment:
+      type: warehouse
+      warehouse: COMPUTE_WH
+    semantic_view: SAP_SUPPLY_CHAIN.ONTOLOGY.SUPPLY_CHAIN_METADATA_MODEL
+  expand_descendants_tool:
+    type: procedure
+    identifier: SAP_SUPPLY_CHAIN.ONTOLOGY.SP_EXPAND_DESCENDANTS
+    execution_environment:
+      type: warehouse
+      warehouse: COMPUTE_WH
+  get_ancestors_tool:
+    type: procedure
+    identifier: SAP_SUPPLY_CHAIN.ONTOLOGY.SP_GET_ANCESTORS
+    execution_environment:
+      type: warehouse
+      warehouse: COMPUTE_WH
+  get_direct_children_tool:
+    type: procedure
+    identifier: SAP_SUPPLY_CHAIN.ONTOLOGY.SP_GET_DIRECT_CHILDREN
+    execution_environment:
+      type: warehouse
+      warehouse: COMPUTE_WH
+  get_hierarchy_path_tool:
+    type: procedure
+    identifier: SAP_SUPPLY_CHAIN.ONTOLOGY.SP_GET_HIERARCHY_PATH
+    execution_environment:
+      type: warehouse
+      warehouse: COMPUTE_WH

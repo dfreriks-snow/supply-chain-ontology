@@ -1,0 +1,253 @@
+name: SUPPLY_CHAIN_BASE
+description: 'Base data layer for the SAP supply-chain network. Covers the 19 nodes
+  (5 plants, 6 suppliers, 8 customers), the 27 material flows worth $56.7M a month,
+  plant capacity and inventory, and material-category substitution capability. Use
+  for concrete lookups: named plants, suppliers and customers, monthly volume and
+  value, spare capacity, days of inventory, and which categories have an alternative
+  source. For cross-type reasoning across abstract classes such as Facility or Party,
+  use the ontology semantic view instead.'
+tables:
+  - name: V_NODE
+    base_table:
+      database: SAP_SUPPLY_CHAIN
+      schema: SCENARIO
+      table: V_NODE
+    primary_key:
+      columns:
+        - NODE_ID
+    dimensions:
+      - name: NODE_ID
+        expr: NODE_ID
+        data_type: VARCHAR
+      - name: NODE_NAME
+        expr: NODE_NAME
+        data_type: VARCHAR
+      - name: NODE_TYPE
+        expr: NODE_TYPE
+        data_type: VARCHAR
+      - name: CITY
+        expr: CITY
+        data_type: VARCHAR
+      - name: COUNTRY
+        expr: COUNTRY
+        data_type: VARCHAR
+      - name: PLANT
+        expr: PLANT
+        data_type: VARCHAR
+    facts:
+      - name: LATITUDE
+        expr: LATITUDE
+        data_type: NUMBER
+      - name: LONGITUDE
+        expr: LONGITUDE
+        data_type: NUMBER
+  - name: V_FLOW
+    base_table:
+      database: SAP_SUPPLY_CHAIN
+      schema: SCENARIO
+      table: V_FLOW
+    dimensions:
+      - name: FLOW_ID
+        expr: FLOW_ID
+        data_type: VARCHAR
+      - name: FLOW_TYPE
+        expr: FLOW_TYPE
+        data_type: VARCHAR
+      - name: MATERIAL_CATEGORY
+        expr: MATERIAL_CATEGORY
+        data_type: VARCHAR
+      - name: MONTHLY_VOLUME
+        expr: MONTHLY_VOLUME
+        data_type: NUMBER
+      - name: SOURCE_ID
+        expr: SOURCE_ID
+        data_type: VARCHAR
+      - name: SOURCE_NAME
+        expr: SOURCE_NAME
+        data_type: VARCHAR
+      - name: SOURCE_TYPE
+        expr: SOURCE_TYPE
+        data_type: VARCHAR
+      - name: SOURCE_COUNTRY
+        expr: SOURCE_COUNTRY
+        data_type: VARCHAR
+      - name: TARGET_ID
+        expr: TARGET_ID
+        data_type: VARCHAR
+      - name: TARGET_NAME
+        expr: TARGET_NAME
+        data_type: VARCHAR
+      - name: TARGET_TYPE
+        expr: TARGET_TYPE
+        data_type: VARCHAR
+      - name: TARGET_COUNTRY
+        expr: TARGET_COUNTRY
+        data_type: VARCHAR
+    facts:
+      - name: MONTHLY_VALUE
+        expr: MONTHLY_VALUE
+        data_type: NUMBER
+  - name: V_PLANT_CAPACITY
+    base_table:
+      database: SAP_SUPPLY_CHAIN
+      schema: SCENARIO
+      table: V_PLANT_CAPACITY
+    primary_key:
+      columns:
+        - PLANT
+    dimensions:
+      - name: PLANT
+        expr: PLANT
+        data_type: VARCHAR
+      - name: PLANT_NAME
+        expr: PLANT_NAME
+        data_type: VARCHAR
+      - name: WORK_CENTERS
+        expr: WORK_CENTERS
+        data_type: NUMBER
+      - name: UNITS_SHIPPED
+        expr: UNITS_SHIPPED
+        data_type: NUMBER
+      - name: SPARE_UNITS
+        expr: SPARE_UNITS
+        data_type: NUMBER
+    facts:
+      - name: AVAILABLE_HRS
+        expr: AVAILABLE_HRS
+        data_type: NUMBER
+      - name: USED_HRS
+        expr: USED_HRS
+        data_type: NUMBER
+      - name: FREE_HRS
+        expr: FREE_HRS
+        data_type: NUMBER
+      - name: UTILIZATION_PCT
+        expr: UTILIZATION_PCT
+        data_type: NUMBER
+      - name: HEADROOM_PCT
+        expr: HEADROOM_PCT
+        data_type: NUMBER
+      - name: HRS_PER_UNIT
+        expr: HRS_PER_UNIT
+        data_type: NUMBER
+  - name: V_PLANT_INVENTORY
+    base_table:
+      database: SAP_SUPPLY_CHAIN
+      schema: SCENARIO
+      table: V_PLANT_INVENTORY
+    primary_key:
+      columns:
+        - PLANT
+    dimensions:
+      - name: PLANT
+        expr: PLANT
+        data_type: VARCHAR
+      - name: PLANT_NAME
+        expr: PLANT_NAME
+        data_type: VARCHAR
+      - name: MATERIALS
+        expr: MATERIALS
+        data_type: NUMBER
+      - name: MIN_DAYS_OF_INVENTORY
+        expr: MIN_DAYS_OF_INVENTORY
+        data_type: NUMBER
+      - name: OBSOLETE_MATERIALS
+        expr: OBSOLETE_MATERIALS
+        data_type: NUMBER
+    facts:
+      - name: AVG_DAYS_OF_INVENTORY
+        expr: AVG_DAYS_OF_INVENTORY
+        data_type: NUMBER
+      - name: STOCK_VALUE
+        expr: STOCK_VALUE
+        data_type: NUMBER
+  - name: V_SUBSTITUTION
+    base_table:
+      database: SAP_SUPPLY_CHAIN
+      schema: SCENARIO
+      table: V_SUBSTITUTION
+    dimensions:
+      - name: MATERIAL_CATEGORY
+        expr: MATERIAL_CATEGORY
+        data_type: VARCHAR
+      - name: FLOW_TYPE
+        expr: FLOW_TYPE
+        data_type: VARCHAR
+      - name: SOURCE_PLANT
+        expr: SOURCE_PLANT
+        data_type: VARCHAR
+      - name: PLANT_NAME
+        expr: PLANT_NAME
+        data_type: VARCHAR
+      - name: VOLUME
+        expr: VOLUME
+        data_type: NUMBER
+      - name: CAPABLE_PLANTS
+        expr: CAPABLE_PLANTS
+        data_type: NUMBER
+      - name: HAS_ALTERNATIVE
+        expr: HAS_ALTERNATIVE
+        data_type: BOOLEAN
+    facts:
+      - name: VALUE
+        expr: VALUE
+        data_type: NUMBER
+relationships:
+  - name: V_PLANT_CAPACITY_TO_V_PLANT_INVENTORY
+    left_table: V_PLANT_CAPACITY
+    right_table: V_PLANT_INVENTORY
+    join_type: inner
+    relationship_type: one_to_one
+    relationship_columns:
+      - left_column: PLANT
+        right_column: PLANT
+verified_queries:
+  - name: 0;1
+    question: Which plants ship to GlobalFoundries and what is the monthly value?
+    sql: SELECT SOURCE_NAME, MATERIAL_CATEGORY, MONTHLY_VALUE FROM v_flow WHERE TARGET_NAME
+      = 'GlobalFoundries'
+    verified_at: 1788377577
+    verified_by: Semantic Model Generator
+  - name: 1;1
+    question: What is Austin Fab's spare capacity and inventory buffer?
+    sql: SELECT c.PLANT_NAME, c.SPARE_UNITS, c.FREE_HRS, c.UTILIZATION_PCT, i.MIN_DAYS_OF_INVENTORY
+      FROM v_plant_capacity AS c JOIN v_plant_inventory AS i ON i.PLANT = c.PLANT
+      WHERE c.PLANT_NAME = 'Austin Fab'
+    verified_at: 1788377577
+    verified_by: Semantic Model Generator
+  - name: 2;1
+    question: Which suppliers feed Penang Assembly and what are their material categories
+      and monthly values?
+    sql: SELECT SOURCE_NAME, MATERIAL_CATEGORY, MONTHLY_VALUE FROM v_flow WHERE TARGET_NAME
+      = 'Penang Assembly' AND FLOW_TYPE = 'Inbound'
+    verified_at: 1788377577
+    verified_by: Semantic Model Generator
+  - name: 3;1
+    question: Which material categories are single-sourced?
+    sql: SELECT MATERIAL_CATEGORY, COUNT(DISTINCT SOURCE_PLANT) AS CAPABLE_PLANTS
+      FROM v_substitution GROUP BY 1 HAVING COUNT(DISTINCT SOURCE_PLANT) = 1
+    verified_at: 1788377577
+    verified_by: Semantic Model Generator
+  - name: 4;1
+    question: What is the total monthly flow value by flow type?
+    sql: SELECT FLOW_TYPE, SUM(MONTHLY_VALUE) AS TOTAL_MONTHLY_VALUE FROM v_flow GROUP
+      BY 1
+    verified_at: 1788377577
+    verified_by: Semantic Model Generator
+  - name: 5;1
+    question: Which plants have the least headroom?
+    sql: SELECT PLANT_NAME, UTILIZATION_PCT, HEADROOM_PCT, SPARE_UNITS FROM v_plant_capacity
+      ORDER BY HEADROOM_PCT ASC
+    verified_at: 1788377577
+    verified_by: Semantic Model Generator
+  - name: 6;1
+    question: How many plants, suppliers and customers are in the network?
+    sql: SELECT NODE_TYPE, COUNT(*) AS NODE_COUNT FROM v_node GROUP BY 1
+    verified_at: 1788377577
+    verified_by: Semantic Model Generator
+  - name: 7;1
+    question: Which customers receive the most value each month?
+    sql: SELECT TARGET_NAME, SUM(MONTHLY_VALUE) AS MONTHLY_VALUE FROM v_flow WHERE
+      TARGET_TYPE = 'Customer' GROUP BY 1 ORDER BY 2 DESC
+    verified_at: 1788377577
+    verified_by: Semantic Model Generator

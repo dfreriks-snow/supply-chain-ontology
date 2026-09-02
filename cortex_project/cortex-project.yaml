@@ -4,4 +4,24 @@ artifacts:
     type: semantic_view
     targets:
       default:
+        object: SAP_SUPPLY_CHAIN.ONTOLOGY.SUPPLY_CHAIN_ONTOLOGY_MODEL
+  - path: SUPPLY_CHAIN_BASE.sv.yaml
+    type: semantic_view
+    targets:
+      default:
+        object: SAP_SUPPLY_CHAIN.ONTOLOGY.SUPPLY_CHAIN_BASE
+  - path: SUPPLY_CHAIN_METADATA_MODEL.sv.yaml
+    type: semantic_view
+    targets:
+      default:
+        object: SAP_SUPPLY_CHAIN.ONTOLOGY.SUPPLY_CHAIN_METADATA_MODEL
+  - path: SUPPLY_CHAIN_AGENT.agent.yaml
+    type: cortex_agent
+    targets:
+      default:
+        object: SAP_SUPPLY_CHAIN.ONTOLOGY.SUPPLY_CHAIN_AGENT
+  - path: SUPPLY_CHAIN_ONTOLOGY_MODEL_BDC.sv.yaml
+    type: semantic_view
+    targets:
+      default:
         object: SAP_BDC_ONTOLOGY.SUPPLY_CHAIN.SUPPLY_CHAIN_ONTOLOGY_MODEL

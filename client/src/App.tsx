@@ -3,6 +3,7 @@ import { Sidebar, type PageId } from "./components/Sidebar";
 import { useQuery } from "./hooks/useQuery";
 import { api } from "./lib/api";
 import Overview from "./pages/Overview";
+import OntologyModel from "./pages/OntologyModel";
 import Graph from "./pages/Graph";
 import Processes from "./pages/Processes";
 import UseCases from "./pages/UseCases";
@@ -18,7 +19,8 @@ import Mitigation from "./pages/Mitigation";
 
 const TITLES: Record<PageId, string> = {
   overview: "Portfolio Overview",
-  graph: "Ontology Graph",
+  model: "Ontology Model — classes and relations",
+  graph: "SAP BDC Catalog — data products and CDS entities",
   traverse: "Graph Traversal",
   processes: "Business-Process Ontology",
   usecases: "Use Cases / Intelligent Applications",
@@ -61,6 +63,7 @@ export default function App() {
   const render = () => {
     switch (page) {
       case "overview": return <Overview />;
+      case "model": return <OntologyModel />;
       case "graph": return <Graph />;
       case "traverse": return <Traverse />;
       case "processes": return <Processes />;

@@ -18,10 +18,26 @@ and the AI309 Summit narrative.
 
 ## What this is, and what it is not
 
-This models **metadata about SAP data products** — which entities exist, how
-they are annotated, and how they associate. It is *not* transactional supply
-chain data: there are no shipments, inventory levels or purchase orders in here.
-For those, see the SAP Supply Chain 360 app.
+Two things live here, and keeping them apart is the point.
+
+**The ontology** — 15 classes and 11 relations in `SAP_SUPPLY_CHAIN.ONTOLOGY`.
+This is the model: what *kinds* of thing exist and how they relate. Five classes
+are abstract, which is what lets one query span several concrete types — asking
+for parties returns all 8 customers and 6 suppliers together. See
+[docs/08-ontology-layer.md](docs/08-ontology-layer.md).
+
+**The SAP BDC catalog** — 10 processes, 334 data products, 2,243 CDS entities.
+This is metadata about *what data exists*: which entities are published, how they
+are annotated, how they associate.
+
+Neither is transactional supply chain data — there are no shipments, inventory
+levels or purchase orders in the catalog half. The scenario engine does carry a
+19-node network with real capacity and inventory for disruption modelling; for
+production supply-chain analytics see the SAP Supply Chain 360 app.
+
+The app previously called the catalog "the ontology". It is not one: a catalog
+cannot express that a Supplier and a Customer are both Parties, so it cannot
+answer "which parties are affected" in a single pass.
 
 ---
 
@@ -52,8 +68,9 @@ PORT=3009
 
 | Page | What it shows |
 |---|---|
-| Overview | Portfolio totals, lenses by source system, industry and provenance |
-| Ontology Graph | Process → data product → entity, filterable and expandable |
+| Overview | The ontology stack and catalog totals, lenses by source system, industry and provenance |
+| **Ontology Model** | The 15 classes and 11 relations, with an abstract/concrete toggle. Abstract classes show the concrete breakdown that proves the abstraction; relations are marked stored, inferred or abstract |
+| SAP BDC Catalog | Process → data product → entity, filterable and expandable. Renamed from "Ontology Graph": it is a catalog, not an ontology |
 | Graph Traversal | Breadth-first expansion and shortest association path |
 | Business Processes | Per-process rollups and members |
 | Use Cases | Mapping to BDC Intelligent Applications |
@@ -130,8 +147,22 @@ graph than exists.
 
 ## Snowflake objects
 
-Views over the parent ontology's `CORE` tables — no copies, so there is one
-source of truth:
+Two schemas, matching the two halves described above.
+
+**The ontology** — `SAP_SUPPLY_CHAIN.ONTOLOGY`, five layers:
+
+```
+L1  KG_NODE  2,662     KG_EDGE  5,457     instances + 15 schema nodes
+L2  20 ONT_* tables                       classes, relations, properties, rules
+L3  40 views · 4 UDFs · 10 procedures     VW_ONT_* span several concrete types
+L4  SUPPLY_CHAIN_BASE                     concrete lookups
+    SUPPLY_CHAIN_ONTOLOGY_MODEL           cross-type reasoning
+    SUPPLY_CHAIN_METADATA_MODEL           governance and provenance
+L5  SUPPLY_CHAIN_AGENT                    7 tools, routes to the right layer
+```
+
+**The BDC catalog** — views over the parent ontology's `CORE` tables, no copies,
+so there is one source of truth:
 
 ```
 SAP_BDC_ONTOLOGY.SUPPLY_CHAIN
@@ -141,14 +172,28 @@ SAP_BDC_ONTOLOGY.SUPPLY_CHAIN
   SUPPLY_CHAIN_ONTOLOGY_MODEL   (semantic view: 17 facts, 11 metrics)
 ```
 
-### Editing the semantic view
+### Two views share the name `SUPPLY_CHAIN_ONTOLOGY_MODEL`
+
+They are different objects in different schemas, and their specs are kept apart
+by filename:
+
+| Spec file | Deploys to |
+|---|---|
+| `SUPPLY_CHAIN_ONTOLOGY_MODEL.sv.yaml` | `SAP_SUPPLY_CHAIN.ONTOLOGY` (the abstract layer) |
+| `SUPPLY_CHAIN_ONTOLOGY_MODEL_BDC.sv.yaml` | `SAP_BDC_ONTOLOGY.SUPPLY_CHAIN` (the catalog) |
+
+`sv-write --source-object` derives the workspace filename from the view name
+alone, so writing either one without an explicit `--file-path` will overwrite the
+other. Pass `--file-path` when the name is already taken.
+
+### Editing a semantic view
 
 Use the `cortex agent-studio` CLI, not a text editor:
 
 ```bash
-cortex agent-studio sv-edit --file-path SUPPLY_CHAIN_ONTOLOGY_MODEL.sv.yaml \
+cortex agent-studio sv-edit --file-path SUPPLY_CHAIN_ONTOLOGY_MODEL_BDC.sv.yaml \
   --operations '[{"operation":"validate_yaml"}]'
-cortex agent-studio sv-deploy --file-path cortex_project/SUPPLY_CHAIN_ONTOLOGY_MODEL.sv.yaml \
+cortex agent-studio sv-deploy --file-path SUPPLY_CHAIN_ONTOLOGY_MODEL_BDC.sv.yaml \
   --fqn SAP_BDC_ONTOLOGY.SUPPLY_CHAIN.SUPPLY_CHAIN_ONTOLOGY_MODEL
 ```
 
@@ -220,10 +265,14 @@ on disk. The rule is implemented in both `tools/bake_static.py` and
 
 ## Refreshing the data
 
+Three independent artifacts, three refresh steps.
+
 ```bash
-npm run export-data     # re-slice from the parent BDC catalog
-npm run deploy-views    # re-assert Snowflake/JSON parity
-npm run bake            # re-snapshot for the public build
+npm run export-data                       # data/sc_ontology.json   BDC catalog
+python3 tools/export_ontology_schema.py   # data/sc_ontology_schema.json  classes
+python3 tools/export_scenario_network.py  # data/sc_network.json     19 nodes
+npm run deploy-views                      # re-assert Snowflake/JSON parity
+npm run bake                              # re-snapshot for the public build
 ```
 
 `export-data` reuses the parent explorer's own derivation functions
@@ -231,3 +280,21 @@ npm run bake            # re-snapshot for the public build
 `semantic_roles`, `lens_summary`) over the filtered dictionary. Copying the
 parent's precomputed blocks instead would publish 334-product figures inside a
 36-product app.
+
+`export_ontology_schema.py` reads `SAP_SUPPLY_CHAIN.ONTOLOGY` and reports any
+mapping defect it finds — a concrete class with no physical mapping, or an
+abstract class that has one — exiting non-zero so a broken export cannot be baked
+silently. Counts come from `INFORMATION_SCHEMA`, not `SHOW`: `SHOW PROCEDURES`
+reports 43 in that schema because it includes built-ins, where the real figure
+is 10.
+
+The baker defaults to `localhost:3009` and honours `BAKE_HOST`:
+
+```bash
+BAKE_HOST=http://localhost:3011 python3 tools/bake_static.py
+```
+
+It emits 19 ontology snapshots — the schema, one per toggle position, and one per
+class. Class snapshots are driven off the schema rather than a hardcoded list, so
+a new class is picked up on the next bake.
+

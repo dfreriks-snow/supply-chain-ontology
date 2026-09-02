@@ -24,6 +24,8 @@ import sys
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from docx.shared import Pt, RGBColor
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent))
@@ -45,6 +47,7 @@ SOURCES = [
     ("docs/05-findings.md",         "Findings",              "05"),
     ("docs/06-references.md",       "References",            "06"),
     ("docs/07-scenario-modelling.md", "Scenario modelling",  "07"),
+    ("docs/08-ontology-layer.md",   "Ontology layer",        "08"),
 ]
 
 MONO = "Consolas"
@@ -107,7 +110,7 @@ def rich_md(paragraph, text, size, base_color=None):
     return paragraph
 
 
-def heading(doc, text, size, color, before, after):
+def heading(doc, text, size, color, before, after, level=None):
     """A heading that honours inline markdown, bolded throughout."""
     p = doc.add_paragraph()
     p.paragraph_format.keep_with_next = True
@@ -117,7 +120,28 @@ def heading(doc, text, size, color, before, after):
     for r in p.runs:
         r.font.bold = True
         r.font.color.rgb = color
+    if level is not None:
+        set_outline_level(p, level)
     return p
+
+
+def set_outline_level(p, level: int) -> None:
+    """
+    Tag a paragraph with an outline level so Word's navigation pane and any
+    generated table of contents pick it up.
+
+    Done via w:outlineLvl rather than by assigning a built-in Heading style,
+    because the Heading styles carry their own fonts and colours and would
+    override the SAP navy / Snowflake blue palette applied above. This keeps the
+    appearance exactly as designed while making the document navigable.
+    """
+    pPr = p._p.get_or_add_pPr()
+    tag = qn("w:outlineLvl")
+    for existing in pPr.findall(tag):
+        pPr.remove(existing)
+    el = OxmlElement("w:outlineLvl")
+    el.set(qn("w:val"), str(level))       # 0-based: 0 = Heading 1
+    pPr.append(el)
 
 
 def para(doc, text, size=10, after=6, italic=False, color=None):
@@ -237,7 +261,7 @@ PIPE_SENTINEL = "\x00PIPE\x00"
 
 
 def split_row(line):
-    """Split a GFM table row, tolerating missing pipes and honouring \| escapes."""
+    r"""Split a GFM table row, tolerating missing pipes and honouring \| escapes."""
     s = line.strip().replace("\\|", PIPE_SENTINEL)
     if s.startswith("|"):
         s = s[1:]
@@ -301,11 +325,13 @@ def render(doc, text, base_level=0):
             # references are a linked repo name — so they render through rich_md
             # rather than as one plain run.
             if lvl <= 1:
-                heading(doc, title, 15, SAP_NAVY, 18, 6)
+                heading(doc, title, 15, SAP_NAVY, 18, 6, level=0)
             elif lvl == 2:
-                heading(doc, title, 11.5, SAP_NAVY, 12, 3)
+                heading(doc, title, 11.5, SAP_NAVY, 12, 3, level=1)
             else:
-                heading(doc, title, 10, SNOW_BLUE, 8, 2)
+                # deeper markdown levels all map to outline 2; Word's navigation
+                # pane only needs enough depth to be useful, not a 1:1 mirror
+                heading(doc, title, 10, SNOW_BLUE, 8, 2, level=min(lvl - 1, 5))
             i += 1
             continue
 
