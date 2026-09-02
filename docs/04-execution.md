@@ -165,15 +165,31 @@ where every page renders empty — worse than a red build.
 
 ---
 
-## What the public build cannot do
+## What the public build can and cannot do
 
-Both are stated on screen rather than left to fail:
+It **can** run every ontology page, and the whole scenario section for the six
+preset disruptions — the ripple animation with its camera and per-beat narration,
+the mitigation plan, and the Optimization Map's beat-by-beat recovery. Simulate is
+a POST that a static site cannot call, so one result per preset is baked and keyed
+by a signature of the disruption; the Optimization Map needs no extra data because
+it reads the `plan` already inside that same result.
+
+It **cannot** do these, each stated on screen rather than left to fail:
 
 - **Ask** — needs Snowflake credentials, which a public site cannot hold.
+- **The scenario AI briefing** — same reason. The simulation and the optimizer
+  behind it still work, so every number on the page is real.
+- **Custom disruptions** — the sliders need the live app, because the simulation
+  runs server-side. Scenario Studio says so up front rather than letting someone
+  drag a slider into a dead end.
 - **Shortest path** — the pair space is quadratic; only expansion from the 24
   most-connected entities is baked.
 
 Everything else works from the snapshot.
+
+The simulate filename rule lives in both `tools/bake_static.py` (`sim_name`) and
+`client/src/lib/api.ts` (`simName`). The two must stay identical, exactly like the
+snapshot filename rule.
 
 ---
 
