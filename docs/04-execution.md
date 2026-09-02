@@ -193,6 +193,42 @@ snapshot filename rule.
 
 ---
 
+## Word versions of the documentation
+
+Every markdown file in this set also ships as a branded Word document, for people
+who will not open a repository.
+
+```bash
+npm run docs-word        # or: python3 tools/build_docs_docx.py
+```
+
+Writes nine files to `~/Documents/SAP/Supply_Chain_Ontology_Docs/` — one per source
+document plus a combined handbook with a contents page — alongside the two
+narrative deliverables (`Supply_Chain_Ontology_Management_Summary.docx` and
+`..._Demo_Scripts.docx`), which are generated separately from live application data.
+
+`tools/build_docs_docx.py` is a bespoke renderer rather than a pandoc call, because
+the output has to match the existing Word deliverables: same palette, page setup,
+navy table headers and `keep_with_next` behaviour. It handles ATX headings, fenced
+code, bullets, numbered lists, blockquotes, rules, GFM tables and inline **bold**,
+`code`, *italic* and links.
+
+Four details in that renderer exist because the alternative silently loses content:
+
+- Table rows are parsed with or without leading and trailing pipes. GFM does not
+  require them and 139 rows here omit them.
+- An escaped `\|` inside a cell is protected before the row is split, otherwise a
+  code span containing `||` is torn across two cells.
+- Code spans are split *inside* bold segments, not alongside them, because a glob
+  like `client/**` legitimately contains `**`.
+- Headings render through the inline parser too — several H3s in the references are
+  a linked repository name.
+
+After a run, confirm nothing was dropped: table and fence counts should match the
+source, and no `**`, `` ` `` or `](http` should survive outside a code block.
+
+---
+
 ## Troubleshooting
 
 **Ask returns `invalid identifier`** — a numeric column was promoted to a fact.

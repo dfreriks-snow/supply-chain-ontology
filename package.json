@@ -17,7 +17,8 @@
     "deploy-scenario": "python3 tools/deploy_scenario_views.py",
     "export-network": "python3 tools/export_scenario_network.py",
     "build-land": "python3 tools/build_land_geojson.py",
-    "verify-scenario": "npm run build -w server && node tools/verify_scenario.mjs"
+    "verify-scenario": "npm run build -w server && node tools/verify_scenario.mjs",
+    "docs-word": "python3 tools/build_docs_docx.py"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
