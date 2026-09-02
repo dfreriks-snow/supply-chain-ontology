@@ -18,7 +18,8 @@
     "export-network": "python3 tools/export_scenario_network.py",
     "build-land": "python3 tools/build_land_geojson.py",
     "verify-scenario": "npm run build -w server && node tools/verify_scenario.mjs",
-    "docs-word": "python3 tools/build_docs_docx.py"
+    "docs-word": "python3 tools/build_docs_docx.py",
+    "video": "python3 tools/video/build.py"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

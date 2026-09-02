@@ -229,6 +229,61 @@ source, and no `**`, `` ` `` or `](http` should survive outside a code block.
 
 ---
 
+## The narrated walkthrough video
+
+A four-and-a-half minute video of the Austin hurricane scenario, driving the real
+app rather than a mock-up.
+
+```bash
+npm run video                          # all four phases
+python3 tools/video/build.py --voice Daniel --phase narrate
+```
+
+Needs the app running on 5179 and the API on 3009. Writes
+`~/Documents/SAP/Supply_Chain_Ontology_Walkthrough.mp4` — 1600x1132, H.264, about
+20 MB.
+
+Four phases, in order, because each depends on the last:
+
+| Phase | What it does |
+| --- | --- |
+| `narrate` | `say` synthesises each line; ffprobe measures it |
+| `cards` | Pillow renders one caption strip per beat |
+| `capture` | Playwright drives the live app, recording video |
+| `assemble` | ffmpeg composites video, captions and narration |
+
+The script lives in `tools/video/segments.py` — one entry per beat, carrying the
+narration, the caption copy and the actions that put the app in the right state.
+
+### Three things that were wrong first
+
+**Timing has to be capture-led.** The first version computed segment start times
+from narration lengths and assumed the browser would keep up. Page loads and
+sidebar navigation are not free, so the recording came out 10s longer than the
+timeline and the captions drifted progressively early. The capture now records the
+wall-clock offset it actually reached for each beat, and the narration is laid onto
+those offsets with `adelay` and `amix` rather than concatenated.
+
+**A single-frame PNG cannot be faded.** Its only frame sits at PTS 0, so
+`fade=t=in:st=246` leaves that frame fully transparent and the caption never
+appears — every one of the 17 was invisible in the first render, while ffmpeg
+reported success. Each caption is now fed with `-loop 1 -t <window>` so the fade
+has real frames, and `setpts` moves it to its slot.
+
+**Captions need their own band.** Overlaying cards on the app hid whichever panel
+they landed on, and on these pages every region carries something. The canvas is
+padded to 1132px and captions live in the bottom 132px, so nothing is covered.
+
+Narration is macOS `say` (Samantha by default), which is clear but not
+indistinguishable from a person — there is no neural voice available offline. The
+phrasing carries what the voice cannot: contractions, short sentences and
+`[[slnc]]` pauses. Swap voices with `--voice`.
+
+After a render, check that every caption is actually visible — sample a frame
+mid-segment and confirm the bottom band is not uniform navy.
+
+---
+
 ## Troubleshooting
 
 **Ask returns `invalid identifier`** — a numeric column was promoted to a fact.
