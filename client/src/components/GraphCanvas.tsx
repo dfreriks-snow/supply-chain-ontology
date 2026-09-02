@@ -22,7 +22,9 @@ export function GraphCanvas({
     if (layout === "tree") {
       cy.layout({
         name: "breadthfirst", directed: true, animate: false,
-        spacingFactor: 1.15, padding: 30, grid: false,
+        // class boxes run up to 190px wide, so rows need more room than the
+        // default spacing gives
+        spacingFactor: 1.6, padding: 34, grid: false, avoidOverlap: true,
         // subClassOf points child -> parent, so roots are the classes with no
         // outgoing subClassOf edge. Cytoscape wants the reverse for a
         // top-down tree, hence the explicit roots.
@@ -96,28 +98,50 @@ export function GraphCanvas({
           { selector: 'node[kind = "entity"]', style: { shape: "ellipse", "font-size": 7 } },
 
           // ---- ontology class graph -------------------------------------
-          // Abstract classes are drawn hollow with a dashed border: they have
-          // no instances of their own, so a filled node would imply substance
-          // they do not have. Concrete classes are filled and sized by
-          // instance count.
+          // Class nodes carry an explicit w/h from the server rather than the
+          // square `size` the base style applies, because width and height must
+          // differ for a label to fit. text-max-width tracks the box, and text
+          // wraps rather than eliding, so nothing spills outside the border.
           {
             selector: 'node[kind = "class"]',
             style: {
-              shape: "round-rectangle", "font-size": 11, "font-weight": 600,
-              "text-max-width": 120, "border-width": 2, "border-color": "#ffffff",
+              shape: "round-rectangle",
+              width: "data(w)",
+              height: "data(h)",
+              "font-size": 11,
+              "font-weight": 600,
+              "text-wrap": "wrap",
+              "text-max-width": "data(tw)",
+              "text-valign": "center",
+              "text-halign": "center",
+              "min-zoomed-font-size": 6,
+              "border-width": 2,
             },
           },
+          // Abstract: near-white fill with a dashed branch-coloured border and
+          // dark branch-coloured text. No instances of its own, so a solid fill
+          // would imply substance it does not have.
           {
             selector: 'node[kind = "class"][?abstract]',
             style: {
-              "background-opacity": 0.12, "background-color": "#1B3A57",
-              "border-width": 2, "border-color": "#1B3A57",
-              "border-style": "dashed", color: "#1B3A57",
+              "background-color": "#ffffff",
+              "background-opacity": 1,
+              "border-color": "data(processColor)",
+              "border-style": "dashed",
+              "border-width": 2.5,
+              color: "data(processColor)",
             },
           },
+          // Concrete: solid branch fill, white label. Every branch colour is
+          // dark enough to clear 4.5:1 against white.
           {
             selector: 'node[kind = "class"][!abstract]',
-            style: { color: "#ffffff", "border-color": "#ffffff" },
+            style: {
+              "background-color": "data(processColor)",
+              "background-opacity": 1,
+              "border-color": "#ffffff",
+              color: "#ffffff",
+            },
           },
           {
             selector: 'edge[kind = "subClassOf"]',

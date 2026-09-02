@@ -107,11 +107,11 @@ export default function OntologyModel() {
             <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-3 text-[11px]">
               <span className="font-mono text-slate-500">{schema.data.source}</span>
               <span className="flex items-center gap-1 text-slate-500">
-                <span className="inline-block h-3 w-3 rounded-sm border-2 border-dashed border-[#1B3A57] bg-[#1B3A57]/10" />
+                <span className="inline-block h-3.5 w-6 rounded border-2 border-dashed border-[#0369a1] bg-white" />
                 abstract
               </span>
               <span className="flex items-center gap-1 text-slate-500">
-                <span className="inline-block h-3 w-3 rounded-sm bg-[#29B5E8]" />
+                <span className="inline-block h-3.5 w-6 rounded bg-[#0369a1]" />
                 concrete
               </span>
               <span className="flex items-center gap-1 text-slate-500">

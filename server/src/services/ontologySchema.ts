@@ -91,7 +91,13 @@ export function loadSchema(): OntologySchema {
 
 export type ClassMode = "abstract" | "concrete" | "both";
 
-/** Colour by branch, so the two halves of the ontology read apart at a glance. */
+/**
+ * Colour by branch, so the two halves of the ontology read apart at a glance.
+ *
+ * These are deliberately dark. Concrete nodes are filled with the branch colour
+ * and labelled in white, and a mid-tone like #29B5E8 gives roughly 2.3:1 against
+ * white — unreadable. Every colour below clears 4.5:1.
+ */
 function branchColor(sch: OntologySchema, name: string): string {
   // Walk up to the branch directly beneath Entity.
   const byName = new Map(sch.classes.map((c) => [c.name, c]));
@@ -103,27 +109,37 @@ function branchColor(sch: OntologySchema, name: string): string {
   }
   const branch = cur?.parent === "Entity" ? cur.name : name;
   switch (branch) {
-    case "Party":            return "#29B5E8";  // Snowflake blue
+    case "Party":            return "#0369a1";  // sky-700
     case "Facility":         return "#1B3A57";  // SAP navy
-    case "MaterialFlow":     return "#0ea5e9";
-    case "MaterialCategory": return "#14b8a6";
-    case "CatalogObject":    return "#94a3b8";  // grey: metadata, not domain
-    default:                 return "#475569";  // Entity itself
+    case "MaterialFlow":     return "#0e7490";  // cyan-700
+    case "MaterialCategory": return "#0f766e";  // teal-700
+    case "CatalogObject":    return "#475569";  // slate-600: metadata, not domain
+    default:                 return "#334155";  // Entity itself
   }
 }
 
 /**
- * Size a class node. Abstract classes have no instances of their own, so they
- * are sized by the subtree beneath them; concrete classes by their own count.
- * Both go through sqrt because CDSEntity (2,243) would otherwise dwarf
- * everything else into invisibility.
+ * Size a class node so the label fits inside it.
+ *
+ * The instance count still drives the size — that encoding is worth keeping —
+ * but it is floored by the width the label actually needs. Sizing purely by
+ * count made `MaterialCategory` render its text outside a 40px box.
+ *
+ * 11px semibold averages ~6.4px per character, but that is an average — a label
+ * of wide glyphs runs over it. Budgeting 7.2px per character plus 26px of
+ * padding leaves room rather than clipping at the boundary.
  */
-function csize(sch: OntologySchema, c: OntClass): number {
+function classBox(sch: OntologySchema, c: OntClass): { w: number; h: number; tw: number } {
   const n = c.is_abstract
     ? (sch.abstract_rollup[c.name]?.total ?? c.descendants ?? 1)
     : c.instances;
-  return Math.round(Math.min(78, 34 + Math.sqrt(Math.max(n, 1)) * 1.1) * 10) / 10;
+  const byCount = 68 + Math.sqrt(Math.max(n, 1)) * 1.5;   // 68..140
+  const byLabel = c.name.length * 7.2 + 26;
+  const w = Math.round(Math.min(200, Math.max(byCount, byLabel)));
+  const h = Math.round(Math.min(56, 34 + Math.sqrt(Math.max(n, 1)) * 0.35));
+  return { w, h, tw: w - 16 };
 }
+
 
 export function buildClassGraph(sch: OntologySchema, mode: ClassMode): any[] {
   const keep = (c: OntClass) =>
@@ -159,7 +175,10 @@ export function buildClassGraph(sch: OntologySchema, mode: ClassMode): any[] {
         id: `cls::${c.name}`,
         label: c.name,
         processColor: branchColor(sch, c.name),
-        size: csize(sch, c),
+        // explicit box, not a single `size`: the base node style makes width and
+        // height equal, which cannot hold a label like MaterialCategory
+        ...classBox(sch, c),
+        size: classBox(sch, c).w,   // kept for any style still reading `size`
         kind: "class",
         abstract: c.is_abstract,
         instances: c.instances,
