@@ -7,11 +7,11 @@ import { LayerStack, RollupBars } from "../components/LayerStack";
 
 const MODES: { id: ClassMode; label: string; blurb: string }[] = [
   { id: "both", label: "Both",
-    blurb: "The whole model. Abstract classes hollow, concrete filled and sized by instance count." },
+    blurb: "The whole model, read left to right. Abstract classes are hollow with a dashed border and carry no rows of their own; concrete classes are filled and state their instance count." },
   { id: "abstract", label: "Abstract",
-    blurb: "The five classes that carry no rows of their own. This is the layer that lets one query span several types." },
+    blurb: "The five classes that carry no rows of their own. This is the layer that lets one query span several concrete types." },
   { id: "concrete", label: "Concrete",
-    blurb: "Only the mapped classes. Note they have no subClassOf edges between them — without the abstract layer there is nothing joining a Supplier to a Customer." },
+    blurb: "Only the mapped classes. Note there are no subClassOf edges between them — strip the abstract layer and nothing joins a Supplier to a Customer." },
 ];
 
 function Pill({ tone, children }: { tone: "abstract" | "concrete" | "inferred" | "stored" | "muted"; children: any }) {
@@ -50,6 +50,9 @@ function RelationRow({ r, side }: { r: OntRelation; side: "out" | "in" }) {
 
 export default function OntologyModel() {
   const [mode, setMode] = useState<ClassMode>("both");
+  // Relations cross the tree and make the hierarchy hard to follow, so they
+  // are off by default: the subClassOf spine is the story this page tells.
+  const [showRel, setShowRel] = useState(false);
   const [sel, setSel] = useState<any | null>(null);
 
   const schema = useQuery(() => api.ontologySchema(), []);
@@ -64,6 +67,12 @@ export default function OntologyModel() {
     () => (selName ? api.classDetail(selName) : Promise.resolve(null)),
     [selName],
   );
+
+  // drop relation edges unless asked for
+  const elements = useMemo(() => {
+    const all = graph.data?.elements ?? [];
+    return showRel ? all : all.filter((e: any) => e.data?.kind !== "relation");
+  }, [graph.data, showRel]);
 
   const c = schema.data?.counts;
   const modeBlurb = MODES.find((m) => m.id === mode)!.blurb;
@@ -83,7 +92,7 @@ export default function OntologyModel() {
           sub="conforming to the model"
           accent="from-emerald-50 to-teal-50 border-emerald-200" />
         <MetricCard label="Semantic views" value={3}
-          sub="base \u00b7 ontology \u00b7 metadata"
+          sub="base · ontology · metadata"
           accent="from-violet-50 to-indigo-50 border-violet-200" />
         <MetricCard label="Inferred edges"
           value={schema.data?.relations.find((r) => r.is_inferred)?.rule?.edges ?? "\u2014"}
@@ -104,25 +113,53 @@ export default function OntologyModel() {
             what this layer was built to fix.
           </p>
           {schema.data && (
-            <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-3 text-[11px]">
-              <span className="font-mono text-slate-500">{schema.data.source}</span>
-              <span className="flex items-center gap-1 text-slate-500">
-                <span className="inline-block h-3.5 w-6 rounded border-2 border-dashed border-[#0369a1] bg-white" />
-                abstract
-              </span>
-              <span className="flex items-center gap-1 text-slate-500">
-                <span className="inline-block h-3.5 w-6 rounded bg-[#0369a1]" />
-                concrete
-              </span>
-              <span className="flex items-center gap-1 text-slate-500">
-                <span className="inline-block h-0 w-4 border-t-2 border-dashed border-purple-500" />
-                inferred relation
-              </span>
-              <span className="flex items-center gap-1 text-slate-500">
-                <span className="inline-block h-0 w-4 border-t-2 border-dotted border-slate-400" />
-                abstract relation
-              </span>
-            </div>
+            <>
+              {/* Branch key. Colour is not decoration here: it separates the
+                  supply-chain domain from the SAP BDC metadata branch, and those
+                  must never be mixed in one answer without saying so. */}
+              <div className="mt-3 border-t border-gray-100 pt-3">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  Two branches, one root
+                </div>
+                <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                  {[
+                    { c: "#0369a1", n: "Party", d: "customers and suppliers" },
+                    { c: "#1B3A57", n: "Facility", d: "plants" },
+                    { c: "#0e7490", n: "MaterialFlow", d: "inbound, outbound, inter-plant" },
+                    { c: "#0f766e", n: "MaterialCategory", d: "what a plant can make" },
+                    { c: "#475569", n: "CatalogObject", d: "SAP BDC metadata, not the domain" },
+                    { c: "#334155", n: "Entity", d: "the root both branches hang from" },
+                  ].map((b) => (
+                    <div key={b.n} className="flex items-baseline gap-2 text-[11px]">
+                      <span className="mt-1 inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
+                        style={{ backgroundColor: b.c }} />
+                      <span className="font-medium text-slate-700">{b.n}</span>
+                      <span className="truncate text-slate-400">{b.d}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-gray-100 pt-3 text-[11px]">
+                <span className="font-mono text-slate-500">{schema.data.source}</span>
+                <span className="flex items-center gap-1 text-slate-500">
+                  <span className="inline-block h-3.5 w-6 rounded border-2 border-dashed border-[#0369a1] bg-white" />
+                  abstract
+                </span>
+                <span className="flex items-center gap-1 text-slate-500">
+                  <span className="inline-block h-3.5 w-6 rounded bg-[#0369a1]" />
+                  concrete
+                </span>
+                <span className="flex items-center gap-1 text-slate-500">
+                  <span className="inline-block h-0 w-4 border-t-2 border-dashed border-purple-500" />
+                  inferred relation
+                </span>
+                <span className="flex items-center gap-1 text-slate-500">
+                  <span className="inline-block h-0 w-4 border-t-2 border-dotted border-slate-400" />
+                  abstract relation
+                </span>
+              </div>
+            </>
           )}
         </ChartCard>
 
@@ -154,8 +191,14 @@ export default function OntologyModel() {
               </button>
             ))}
           </div>
-          <div className="ml-auto text-[11px] text-slate-400">
-            {graph.data && `${graph.data.elements.filter((e: any) => !e.data.source).length} classes shown`}
+          <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-[11px] text-slate-600">
+            <input type="checkbox" checked={showRel}
+              onChange={(e) => setShowRel(e.target.checked)}
+              className="h-3.5 w-3.5 rounded border-gray-300" />
+            show relations
+          </label>
+          <div className="text-[11px] text-slate-400">
+            {graph.data && `${graph.data.elements.filter((e: any) => e.data?.kind === "class").length} classes`}
           </div>
         </div>
         <p className="mt-2 text-[12px] leading-relaxed text-slate-600">{modeBlurb}</p>
@@ -173,7 +216,7 @@ export default function OntologyModel() {
             </div>
           )}
           <GraphCanvas
-            elements={graph.data?.elements ?? []}
+            elements={elements}
             onSelectNode={setSel}
             height={620}
             layout="tree"

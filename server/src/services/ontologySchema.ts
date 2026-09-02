@@ -119,27 +119,88 @@ function branchColor(sch: OntologySchema, name: string): string {
 }
 
 /**
- * Size a class node so the label fits inside it.
+ * Size a class node so both label lines fit inside it.
  *
- * The instance count still drives the size — that encoding is worth keeping —
- * but it is floored by the width the label actually needs. Sizing purely by
- * count made `MaterialCategory` render its text outside a 40px box.
- *
- * 11px semibold averages ~6.4px per character, but that is an average — a label
- * of wide glyphs runs over it. Budgeting 7.2px per character plus 26px of
- * padding leaves room rather than clipping at the boundary.
+ * The node carries two lines — the class name at 12px semibold and a count at
+ * 9.5px — so width is driven by whichever line is wider, and height is fixed at
+ * two lines plus padding rather than scaled by instance count. Encoding count in
+ * the box size was the earlier approach and it fought legibility: CDSEntity at
+ * 2,243 wanted to be huge and Plant at 5 wanted to be smaller than its own name.
+ * The count is now stated in text, which is both clearer and honest about
+ * magnitude in a way area never is.
  */
 function classBox(sch: OntologySchema, c: OntClass): { w: number; h: number; tw: number } {
-  const n = c.is_abstract
-    ? (sch.abstract_rollup[c.name]?.total ?? c.descendants ?? 1)
-    : c.instances;
-  const byCount = 68 + Math.sqrt(Math.max(n, 1)) * 1.5;   // 68..140
-  const byLabel = c.name.length * 7.2 + 26;
-  const w = Math.round(Math.min(200, Math.max(byCount, byLabel)));
-  const h = Math.round(Math.min(56, 34 + Math.sqrt(Math.max(n, 1)) * 0.35));
-  return { w, h, tw: w - 16 };
+  const rollup = sch.abstract_rollup[c.name];
+  const countLine = c.is_abstract
+    ? (rollup ? `${rollup.total.toLocaleString()} in ${rollup.breakdown.length} ${rollup.breakdown.length === 1 ? "type" : "types"}` : "abstract")
+    : `${c.instances.toLocaleString()} instance${c.instances === 1 ? "" : "s"}`;
+  // 12px semibold ~ 7.4px/char; 9.5px regular ~ 5.3px/char
+  const need = Math.max(c.name.length * 7.4, countLine.length * 5.3);
+  const w = Math.round(Math.min(215, Math.max(150, need + 30)));
+  return { w, h: 54, tw: w - 20 };
 }
 
+
+/**
+ * Lay the class tree out explicitly, left to right.
+ *
+ * Cytoscape's `breadthfirst` cannot do this from the data as it stands:
+ * subClassOf points child -> parent, so a directed traversal rooted at Entity
+ * immediately dead-ends and every other class ends up unreachable on a single
+ * rank. Rather than reverse the edges — which would draw the arrows backwards
+ * and misstate the relation — positions are computed here and shipped as a
+ * preset layout.
+ *
+ * Left to right rather than top down because class names are long horizontal
+ * words; ranks as columns give each label room without crowding its siblings.
+ */
+function treePositions(
+  sch: OntologySchema,
+  kept: OntClass[],
+): Map<string, { x: number; y: number }> {
+  const COL_W = 250;      // horizontal gap between depths
+  const SLOT_H = 74;      // vertical gap between siblings
+  const names = new Set(kept.map((c) => c.name));
+  const childrenOf = new Map<string, string[]>();
+  for (const c of kept) {
+    if (c.parent && names.has(c.parent)) {
+      const arr = childrenOf.get(c.parent) ?? [];
+      arr.push(c.name);
+      childrenOf.set(c.parent, arr);
+    }
+  }
+  for (const arr of childrenOf.values()) arr.sort();
+
+  // roots: kept classes whose parent is absent from this view. In concrete mode
+  // every class is a root, which is the honest picture — there is no spine.
+  const roots = kept
+    .filter((c) => !c.parent || !names.has(c.parent))
+    .map((c) => c.name)
+    .sort();
+
+  const pos = new Map<string, { x: number; y: number }>();
+  const depthOf = new Map<string, number>();
+  let slot = 0;
+
+  // post-order walk: leaves take the next slot, parents centre on their children
+  const place = (name: string, depth: number): number => {
+    depthOf.set(name, depth);
+    const kids = childrenOf.get(name) ?? [];
+    let y: number;
+    if (kids.length === 0) {
+      y = slot * SLOT_H;
+      slot += 1;
+    } else {
+      const ys = kids.map((k) => place(k, depth + 1));
+      y = (Math.min(...ys) + Math.max(...ys)) / 2;
+    }
+    pos.set(name, { x: depth * COL_W, y });
+    return y;
+  };
+  for (const r of roots) place(r, 0);
+
+  return pos;
+}
 
 export function buildClassGraph(sch: OntologySchema, mode: ClassMode): any[] {
   const keep = (c: OntClass) =>
@@ -147,6 +208,7 @@ export function buildClassGraph(sch: OntologySchema, mode: ClassMode): any[] {
 
   const kept = sch.classes.filter(keep);
   const keptNames = new Set(kept.map((c) => c.name));
+  const pos = treePositions(sch, kept);
 
   const nodes = kept.map((c) => {
     const rollup = sch.abstract_rollup[c.name];
@@ -170,21 +232,27 @@ export function buildClassGraph(sch: OntologySchema, mode: ClassMode): any[] {
     const props = sch.properties[c.name];
     if (props?.length) sub.push(`${props.length} declared propert${props.length === 1 ? "y" : "ies"}`);
 
+    const countLine = c.is_abstract
+      ? (rollup ? `${rollup.total.toLocaleString()} in ${rollup.breakdown.length} ${rollup.breakdown.length === 1 ? "type" : "types"}` : "abstract")
+      : `${c.instances.toLocaleString()} instance${c.instances === 1 ? "" : "s"}`;
+
     return {
       data: {
         id: `cls::${c.name}`,
-        label: c.name,
+        // two lines, joined with a newline: a Cytoscape node has one label, and
+        // text-wrap:wrap honours the break. The count means the diagram says
+        // something without needing a click.
+        label: `${c.name}\n${countLine}`,
+        name: c.name,
         processColor: branchColor(sch, c.name),
-        // explicit box, not a single `size`: the base node style makes width and
-        // height equal, which cannot hold a label like MaterialCategory
         ...classBox(sch, c),
-        size: classBox(sch, c).w,   // kept for any style still reading `size`
         kind: "class",
         abstract: c.is_abstract,
         instances: c.instances,
         depth: c.depth,
         sub: sub.join("<br>"),
       },
+      position: pos.get(c.name) ?? { x: 0, y: 0 },
     };
   });
 

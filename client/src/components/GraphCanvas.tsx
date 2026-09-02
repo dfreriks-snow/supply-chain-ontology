@@ -11,25 +11,24 @@ export function GraphCanvas({
   elements: any[];
   onSelectNode?: (data: any | null) => void;
   height?: number;
-  // A class hierarchy reads as a tree, so the ontology page asks for a
-  // top-down breadthfirst layout. The catalog graph stays on force-directed,
-  // where there is no meaningful root to hang everything from.
+  // A class hierarchy reads as a tree. The server ships explicit positions for
+  // it, so the canvas honours them rather than running a layout that would
+  // scatter what was deliberately arranged.
   layout?: "fcose" | "tree";
 }) {
   const cyRef = useRef<cytoscape.Core | null>(null);
 
   const runLayout = (cy: cytoscape.Core) => {
     if (layout === "tree") {
-      cy.layout({
-        name: "breadthfirst", directed: true, animate: false,
-        // class boxes run up to 190px wide, so rows need more room than the
-        // default spacing gives
-        spacingFactor: 1.6, padding: 34, grid: false, avoidOverlap: true,
-        // subClassOf points child -> parent, so roots are the classes with no
-        // outgoing subClassOf edge. Cytoscape wants the reverse for a
-        // top-down tree, hence the explicit roots.
-        roots: cy.nodes().filter((n) => n.outgoers('edge[kind = "subClassOf"]').length === 0),
-      } as any).run();
+      // preset: positions come from the elements themselves
+      cy.layout({ name: "preset", animate: false, fit: true, padding: 40 } as any).run();
+      // Re-fit on the next frame. The layout's own fit can run before the
+      // container has its final height, which left the lower branches of the
+      // tree cropped below the fold.
+      requestAnimationFrame(() => {
+        cy.resize();
+        cy.fit(undefined, 30);
+      });
       return;
     }
     cy.layout({
@@ -98,29 +97,31 @@ export function GraphCanvas({
           { selector: 'node[kind = "entity"]', style: { shape: "ellipse", "font-size": 7 } },
 
           // ---- ontology class graph -------------------------------------
-          // Class nodes carry an explicit w/h from the server rather than the
-          // square `size` the base style applies, because width and height must
-          // differ for a label to fit. text-max-width tracks the box, and text
-          // wraps rather than eliding, so nothing spills outside the border.
+          // Two lines per node: the class name and its count. A node has exactly
+          // one label in Cytoscape, so the server joins both with a newline and
+          // text-wrap:wrap honours it. (source-label is edge-only and does not
+          // apply to nodes.)
           {
             selector: 'node[kind = "class"]',
             style: {
               shape: "round-rectangle",
               width: "data(w)",
               height: "data(h)",
-              "font-size": 11,
+              label: "data(label)",
+              "font-size": 12,
               "font-weight": 600,
               "text-wrap": "wrap",
               "text-max-width": "data(tw)",
               "text-valign": "center",
               "text-halign": "center",
-              "min-zoomed-font-size": 6,
+              "line-height": 1.35,
+              "min-zoomed-font-size": 5,
               "border-width": 2,
+              "font-family": "system-ui, -apple-system, sans-serif",
             },
           },
-          // Abstract: near-white fill with a dashed branch-coloured border and
-          // dark branch-coloured text. No instances of its own, so a solid fill
-          // would imply substance it does not have.
+          // Abstract: white fill, dashed branch border, dark branch text. No rows
+          // of its own, so a solid fill would imply substance it does not have.
           {
             selector: 'node[kind = "class"][?abstract]',
             style: {
@@ -132,8 +133,7 @@ export function GraphCanvas({
               color: "data(processColor)",
             },
           },
-          // Concrete: solid branch fill, white label. Every branch colour is
-          // dark enough to clear 4.5:1 against white.
+          // Concrete: solid branch fill, white label. Palette clears 4.5:1.
           {
             selector: 'node[kind = "class"][!abstract]',
             style: {
@@ -146,9 +146,15 @@ export function GraphCanvas({
           {
             selector: 'edge[kind = "subClassOf"]',
             style: {
-              width: 2, "line-color": "#1B3A57", "curve-style": "taxi",
-              "taxi-direction": "downward", "target-arrow-shape": "triangle",
-              "target-arrow-color": "#1B3A57", opacity: 0.75,
+              width: 2,
+              "line-color": "#94a3b8",
+              "curve-style": "taxi",
+              "taxi-direction": "leftward",
+              "taxi-turn": "50%",
+              "target-arrow-shape": "triangle",
+              "target-arrow-color": "#94a3b8",
+              "arrow-scale": 0.9,
+              opacity: 0.85,
             },
           },
           {
