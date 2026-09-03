@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import CytoscapeComponent from "react-cytoscapejs";
 import cytoscape from "cytoscape";
 import fcose from "cytoscape-fcose";
@@ -44,8 +44,29 @@ export function RippleGraph({
 }: RippleGraphProps) {
   const spotlight = highlightFlows && highlightFlows.size > 0;
   const cyRef = useRef<cytoscape.Core | null>(null);
+  // Once the viewer zooms or pans deliberately, stop re-framing the graph on
+  // every beat: being yanked back mid-inspection is worse than a stale frame.
+  // The reset control below is the way back.
+  const userMoved = useRef(false);
+  const programmatic = useRef(false);
+  const [moved, setMoved] = useState(false);
   const maxVol = useMemo(() => Math.max(1, ...flows.map((f) => f.monthly_volume)), [flows]);
   const show = (hop: number) => revealHop === undefined || hop <= revealHop;
+
+  const frame = (cy: cytoscape.Core) => {
+    programmatic.current = true;
+    cy.fit(undefined, 44);
+    // cy.fit emits zoom and pan, which would otherwise look like user input
+    requestAnimationFrame(() => { programmatic.current = false; });
+  };
+
+  const resetView = () => {
+    const cy = cyRef.current;
+    if (!cy) return;
+    userMoved.current = false;
+    setMoved(false);
+    frame(cy);
+  };
 
   const elements = useMemo(() => {
     const els: any[] = [];
@@ -122,13 +143,25 @@ export function RippleGraph({
   useEffect(() => {
     const cy = cyRef.current;
     if (!cy) return;
-    cy.layout({
-      name: "preset", fit: true, padding: 44, animate: false,
-    } as any).run();
+    // positions are preset and already correct; fit is applied separately so a
+    // deliberate zoom survives the next beat
+    cy.layout({ name: "preset", fit: false, animate: false } as any).run();
+    if (!userMoved.current) frame(cy);
   }, [elements]);
 
   return (
-    <div className="rounded-lg bg-white">
+    <div className="relative rounded-lg bg-white">
+      {/* Reset sits over the canvas, and only appears once there is something to
+          reset — a permanent button on an unmoved graph is just noise. */}
+      {moved && (
+        <button
+          onClick={resetView}
+          title="Refit the graph to the panel"
+          className="absolute right-2 top-2 z-10 rounded-md border border-gray-300 bg-white/95 px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+        >
+          Reset view
+        </button>
+      )}
       <CytoscapeComponent
         elements={elements}
         style={{ width: "100%", height }}
@@ -138,6 +171,11 @@ export function RippleGraph({
           cy.on("tap", "node", (e: cytoscape.EventObject) => onSelect?.(e.target.id()));
           cy.on("tap", (e: cytoscape.EventObject) => {
             if (e.target === cy) onSelect?.(null);
+          });
+          cy.on("zoom pan", () => {
+            if (programmatic.current || userMoved.current) return;
+            userMoved.current = true;
+            setMoved(true);
           });
         }}
         stylesheet={[

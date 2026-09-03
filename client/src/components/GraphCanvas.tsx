@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import CytoscapeComponent from "react-cytoscapejs";
 import cytoscape from "cytoscape";
 import fcose from "cytoscape-fcose";
@@ -17,6 +17,26 @@ export function GraphCanvas({
   layout?: "fcose" | "tree";
 }) {
   const cyRef = useRef<cytoscape.Core | null>(null);
+  // A deliberate zoom should survive a re-render; the reset control is the way
+  // back, rather than silently re-framing under the viewer.
+  const userMoved = useRef(false);
+  const programmatic = useRef(false);
+  const [moved, setMoved] = useState(false);
+
+  const refit = (cy: cytoscape.Core, pad: number) => {
+    programmatic.current = true;
+    cy.resize();
+    cy.fit(undefined, pad);
+    requestAnimationFrame(() => { programmatic.current = false; });
+  };
+
+  const resetView = () => {
+    const cy = cyRef.current;
+    if (!cy) return;
+    userMoved.current = false;
+    setMoved(false);
+    refit(cy, layout === "tree" ? 30 : 60);
+  };
 
   const runLayout = (cy: cytoscape.Core) => {
     if (layout === "tree") {
@@ -26,8 +46,7 @@ export function GraphCanvas({
       // container has its final height, which left the lower branches of the
       // tree cropped below the fold.
       requestAnimationFrame(() => {
-        cy.resize();
-        cy.fit(undefined, 30);
+        if (!userMoved.current) refit(cy, 30);
       });
       return;
     }
@@ -43,8 +62,7 @@ export function GraphCanvas({
     // outermost nodes were cropped at the container edge. Re-fit with padding
     // wide enough for a label.
     requestAnimationFrame(() => {
-      cy.resize();
-      cy.fit(undefined, 60);
+      if (!userMoved.current) refit(cy, 60);
     });
   };
 
@@ -54,8 +72,17 @@ export function GraphCanvas({
   }, [elements, layout]);
 
   return (
-    <div className="w-full overflow-hidden rounded-xl border border-gray-200 bg-slate-50"
+    <div className="relative w-full overflow-hidden rounded-xl border border-gray-200 bg-slate-50"
       style={{ height }}>
+      {moved && (
+        <button
+          onClick={resetView}
+          title="Refit the diagram to the panel"
+          className="absolute right-2 top-2 z-10 rounded-md border border-gray-300 bg-white/95 px-2 py-1 text-[11px] font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+        >
+          Reset view
+        </button>
+      )}
       <CytoscapeComponent
         elements={elements}
         className="h-full w-full"
@@ -75,6 +102,11 @@ export function GraphCanvas({
               cy.elements().removeClass("faded highlighted");
               onSelectNode?.(null);
             }
+          });
+          cy.on("zoom pan", () => {
+            if (programmatic.current || userMoved.current) return;
+            userMoved.current = true;
+            setMoved(true);
           });
           runLayout(cy);
         }}
