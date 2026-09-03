@@ -246,6 +246,89 @@ list, so a new class is picked up automatically.
 
 ---
 
+## Reading the diagrams
+
+Three rendering traps cost real time here, and all three produced output that
+looked plausible while being wrong. They are recorded because each is easy to
+repeat.
+
+### The class tree is positioned server-side, not laid out by Cytoscape
+
+`subClassOf` points **child → parent**. A directed `breadthfirst` layout rooted at
+the classes with no *outgoing* edge therefore roots at `Entity` — correct — and
+then immediately dead-ends, because every edge points *up* toward it. All fourteen
+other classes are unreachable and land on a single rank. The result is not a bad
+layout, it is fifteen nodes collapsed into one horizontal line of slivers.
+
+Reversing the edges would satisfy the layout engine but would draw the arrows
+backwards and misstate the relation, so positions are computed in
+`buildClassGraph` instead: a post-order walk assigns each leaf a slot and centres
+parents on their children, and the client renders `preset`.
+
+Left to right rather than top down, because class names are long horizontal words
+and ranks-as-columns give them room:
+
+```
+                        ┌ BusinessProcess  10
+        ┌ CatalogObject ┼ CDSEntity     2,243
+        │                └ DataProduct    334
+        ├ Facility ────── Plant             5
+Entity ─┼ MaterialCategory  14
+        │                ┌ InboundFlow     12
+        ├ MaterialFlow ──┼ InterPlantFlow   4
+        │                └ OutboundFlow    11
+        └ Party ─────────┬ Customer         8
+                         └ Supplier         6
+```
+
+### A node has one label, so two lines are joined with a newline
+
+`source-label` is an **edge** property and does nothing on a node. To put a count
+under a class name, the server emits `label: "Party\n14 in 2 types"` and the
+client sets `text-wrap: wrap`, which honours the break.
+
+Box size deliberately does **not** encode instance count. It did at first, and it
+fought legibility from both ends: `CDSEntity` at 2,243 wanted to be enormous, and
+`Plant` at 5 wanted to be smaller than the word "Plant". Width is driven by the
+wider of the two text lines, and the count is stated in words — which is also more
+honest about magnitude than area ever is.
+
+### White text needs a fill behind all of it
+
+Both graphs shipped with white labels wider than the shapes holding them. The
+overflow landed on the light canvas and vanished, so `Design to Operate` read as
+`ign to Ope` — the only fragment still over the coloured fill. Two different fixes,
+because the shapes differ:
+
+| Node | Fix |
+|---|---|
+| Process (rounded rect) | `width: label` with padding, so the fill always extends behind the whole string |
+| Product / entity (small circle) | label moved **below** the node in dark text with a white outline |
+
+A 30-character name cannot sit inside an 18px circle. Putting it below is the
+honest arrangement, and the outline keeps it readable where it crosses an edge.
+
+Related: `fcose` fits the node bounding box, which **excludes** labels, so names on
+the outermost nodes were cropped at the container edge until an explicit re-fit
+with label-width padding was added.
+
+### Controls
+
+| Control | Behaviour |
+|---|---|
+| Abstract / Concrete / Both | Concrete deliberately shows ten disconnected classes — strip the abstract layer and nothing joins a Supplier to a Customer |
+| Show relations | Off by default. The eleven relation edges cross the tree and bury the `subClassOf` spine, which is what the page is about |
+| Reset view | Appears only once you have zoomed or panned, and restores the fit |
+
+The reset control exists because the topology panel refitted on every beat of the
+ripple, undoing a deliberate zoom. A viewer's zoom is now recorded and suppresses
+further auto-fitting. Telling that input apart from a programmatic fit needs a
+flag around the `cy.fit` call, since `fit` emits the same `zoom` and `pan` events
+that a mouse wheel does — without it the graph marks itself moved the instant it
+fits, and never re-frames again.
+
+---
+
 ## Defects found in the generator
 
 The layer was built with the `ontology-stack-builder` skill. Seven defects

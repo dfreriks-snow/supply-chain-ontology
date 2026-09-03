@@ -109,8 +109,10 @@ def main():
          "a reroute is a real load with a real limit", "5"],
         ["5", "Customer Account Director", "Ripple Map",
          "customers are hit who are nowhere near the event", "5"],
-        ["6", "Enterprise / Data Architect", "Ontology Graph",
-         "none of this required moving SAP data", "7"],
+        ["6", "Enterprise / Data Architect", "Ontology Model",
+         "the abstract layer answers questions the catalog cannot", "7"],
+        ["7", "Enterprise / Data Architect", "SAP BDC Catalog",
+         "none of this required moving SAP data", "5"],
     ], [0.3, 1.9, 1.35, 2.75, 0.55], size=9)
 
     h2(doc, "Before any demo")
@@ -481,34 +483,47 @@ def main():
          "pipeline, no copies, no new platform.")
 
     beats(doc, [
-        ["1", "Ontology Graph", "Open the graph. Filter to one process.",
+        ["1", "Ontology Model", "Open the model. Leave the toggle on Both.",
+         "“Start with the model rather than the data. Fifteen classes, eleven relations. "
+         "Five of those classes are abstract — they hold no rows of their own and exist so "
+         "one question can span several concrete types.”"],
+        ["2", "Ontology Model", "Switch the toggle to Concrete, then back to Both.",
+         "“That is the whole argument. Strip the abstract layer and the ten remaining "
+         "classes have nothing joining them — no path from a Supplier to a Customer. Put it "
+         "back and asking for parties returns all eight customers and six suppliers "
+         "together.”"],
+        ["3", "Ontology Model", "Select Party. Read the breakdown card.",
+         "“And it is demonstrated, not asserted. One view, two concrete types, fourteen "
+         "rows. The relation table below marks canSubstituteFor as inferred — nothing "
+         "stores it, a rule derives it from which plants make the same category.”"],
+        ["4", "SAP BDC Catalog", "Open the catalog. Filter to one process.",
          "“Start with what SAP gives us. Business Data Cloud publishes the supply chain as "
          "governed data products, each one a set of CDS entities with declared "
          "relationships.”"],
-        ["2", "Ontology Graph", "Expand a data product to show its entities.",
+        ["5", "SAP BDC Catalog", "Expand a data product to show its entities.",
          "“36 supply-chain data products, 338 entities, 281 declared associations. The "
          "relationships are in SAP's own metadata — we did not reverse-engineer them from "
          "column names.”"],
-        ["3", "Graph Traversal", "Show the amber topology panel.",
+        ["6", "Graph Traversal", "Show the amber topology panel.",
          "“And we measured the shape rather than assuming it. No association crosses a data "
          "product boundary; cross-product linkage runs entirely through one canonical object, "
          "Plant. That is a finding, and the page says so.”"],
-        ["4", "Ask the Ontology", "Ask a question and expand the generated SQL.",
+        ["7", "Ask the Ontology", "Ask a question and expand the generated SQL.",
          "“Natural language over a governed semantic view, and it shows you the SQL. The "
          "answer is auditable, not asserted.”"],
-        ["5", "Scenario Studio", "Switch to the scenario section.",
+        ["8", "Scenario Studio", "Switch to the scenario section.",
          f"“Now the scenario layer. {nt['nodes']} nodes, {nt['flows']} flows, "
          f"{money(nt['monthly_value'])} a month — all views over existing Snowflake tables. "
          f"No copies, so this and operational reporting cannot disagree.”"],
-        ["6", "Ripple Map", "Run a scenario and note the response time.",
+        ["9", "Ripple Map", "Run a scenario and note the response time.",
          "“Propagation runs in the application, not the warehouse. Nineteen nodes and 27 "
          "flows simulate in microseconds, so the UI recomputes on every slider move. A "
          "warehouse round-trip per keystroke would buy nothing.”"],
-        ["7", "Mitigation", "Click Brief me.",
+        ["10", "Mitigation", "Click Brief me.",
          "“The narrative uses AI_COMPLETE, deliberately not Cortex Analyst. The ripple exists "
          "only in memory — Analyst would query the undisrupted network and confidently answer "
          "the wrong question.”"],
-        ["8", "—", "Summarise the build.",
+        ["11", "—", "Summarise the build.",
          "“Views, one semantic view, a static JSON export and an application. No ETL, no new "
          "platform, and a verification harness that runs 20 assertions across five disruption "
          "types on every change.”"],

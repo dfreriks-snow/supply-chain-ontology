@@ -358,3 +358,58 @@ produces a 24s play-through.
 **Float subtraction leaks into the UI.** `hrsAvailableBefore - hrsRequired` rendered
 as `36.19999999999999`. Rounding at the point of display, not in the model, keeps
 the arithmetic exact and the card readable.
+
+---
+
+## Lessons from the ontology layer
+
+**A metadata schema that cannot express abstractness undercuts the model it
+describes.** `ONT_RELATION_DEF` carries `IS_HIERARCHICAL` and `IS_TRANSITIVE` but
+has no `IS_ABSTRACT` column, so the one abstract relation in the ontology —
+`flowsTo`, an umbrella over `supplies`, `shipsTo` and `transfersTo` — cannot be
+recorded as such. It is inferred instead from a double absence: no `ONT_REL_MAP`
+row and no inference rule means nothing stores it and nothing derives it.
+Abstract *classes* are recorded properly via `ONT_CLASS.IS_ABSTRACT`; only
+relations lack the column. Deriving a property from absence works, but it is
+fragile in a way a column is not.
+
+**A name collision in a graph that holds both schema and instances fails
+silently.** All four traversal UDFs resolved a concept with
+`WHERE LOWER(NAME) = LOWER(arg) LIMIT 1` — no `ORDER BY`, no type filter.
+`KG_NODE` holds ontology classes *and* instances, and `Supplier` matches three
+nodes: a CDSEntity, a DataProduct and the OntologyClass. The UDF picked one
+arbitrarily, usually a catalog node with no `subClassOf` edges, and returned zero
+rows rather than an error. `EXPAND_DESCENDANTS_TOOL('Party')` worked only because
+no SAP data product happens to be called "Party", which is why testing one
+function passed the set. Non-deterministic, silent, and triggered by loading the
+catalog the tooling itself encourages.
+
+**Table functions are not agent function tools.** A Cortex Agent
+`type: function` resource resolves scalar functions only. Registering a UDTF fails
+with `Unknown user-defined function` — the name resolves, the scalar lookup does
+not. Worse, the agent caught the error and fell back to another tool, producing
+the *correct* answer while all four graph tools were dead. Output that looks
+healthy is the hardest kind of failure to notice.
+
+**`SHOW` counts are not object counts.** `SHOW PROCEDURES IN SCHEMA` reported 43
+in a schema holding 10, because it includes built-ins. Anything drawn in a UI
+from a count needs `INFORMATION_SCHEMA`.
+
+**A directed layout cannot traverse edges that point the wrong way.**
+`subClassOf` points child → parent, so `breadthfirst` rooted at `Entity` — the
+only class with no outgoing edge — dead-ends immediately and leaves fourteen
+classes unreachable on one rank. The output was not a poor layout but a line of
+slivers. Computing positions directly was both simpler and more stable than
+reversing edges, which would have drawn the arrows backwards.
+
+**White text needs fill behind all of it, not most of it.** Labels wider than
+their nodes spilled onto a light canvas and vanished; `Design to Operate`
+rendered as `ign to Ope`, the fragment still over the coloured box. Sizing the
+box to its label fixes the rectangles. For an 18px circle holding a 30-character
+name no fill will do, and the label belongs below the node.
+
+**Verify visual work visually.** Two rounds of contrast ratios and box arithmetic
+said the diagram was correct while it was rendering as an unreadable line.
+Playwright and Chromium were installed the whole time. A screenshot would have
+caught it in seconds, and numeric reasoning about a rendered output is not
+verification of it.
