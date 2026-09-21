@@ -106,6 +106,58 @@ by both generators so they cannot drift apart in styling.
 
 ---
 
+## Presales kit
+
+A separate set of deliverables aimed at a Snowflake SE rather than a customer,
+published to the SAP Partnership Compass page on Seismic. Seismic has no API, so
+the generators write a local folder and the upload is manual.
+
+```bash
+python3 tools/build_presales_kit.py   # three Word documents
+python3 tools/build_presales_deck.py  # ten-slide deck, screenshots from the video
+```
+
+Both write to `~/Documents/SAP/Supply_Chain_Ontology_Presales_Kit/`. Unlike the
+briefing documents above they read `data/*.json` rather than the live API, so they
+do not need `npm run dev` running — but they are only as current as the last
+export.
+
+| File | Contents |
+|---|---|
+| `00_START_HERE.docx` | What is in the kit, which file to open when, the demo in six numbers, the real-versus-modelled discipline |
+| `03_SE_Quick_Start.docx` | Positioning, a ten-minute demo path, the scenario library, persona-to-page map, discovery questions, seven objections with answers |
+| `06_Setup_and_Access.docx` | Live URL, local run, the Snowflake object inventory across both schemas, the scope rule |
+| `00_Presales_Overview.pptx` | Ten slides — problem, product, cascade, response, result, library, architecture, real-versus-modelled, the ask |
+
+The remaining kit files are copies of existing assets: the management summary, the
+demo scripts, the documentation handbook and the narrated walkthrough video.
+
+`build_presales_deck.py` pulls four screenshots straight out
+of `Supply_Chain_Ontology_Walkthrough.mp4` with ffmpeg, cached in
+`tools/.presales_shots/`. Two consequences worth knowing:
+
+- The video is the narrated cut. The silent `_video.mp4` sibling has no audio
+  track — check with `ffprobe` before substituting it.
+- Screenshots age with the UI. The recording predates renaming *Ontology Graph* to
+  *SAP BDC Catalog* and the addition of the *Ontology Model* page, so both new
+  documents carry that caveat explicitly. Re-record before adding a fifth frame,
+  or the deck will contradict the live app.
+
+Check the deck renders before shipping it — a text box that overflows in
+PowerPoint is invisible in the XML:
+
+```bash
+soffice --headless --convert-to pdf 00_Presales_Overview.pptx --outdir /tmp/deckchk
+pdftoppm -png -r 70 /tmp/deckchk/00_Presales_Overview.pdf /tmp/deckchk/p
+```
+
+Wide screenshots do not fit a full-width slide: at 1600×1132 a 12-inch box is
+height-bound and the image lands at barely half the available width. The picture
+slides put the screenshot in a 7.6-inch column with the KPI cards stacked beside
+it instead.
+
+---
+
 ## Scope rule
 
 A data product is in scope when **either**
