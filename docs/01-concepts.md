@@ -85,7 +85,7 @@ supplier is late" cannot be answered by this ontology, and the semantic view
 says so explicitly so Cortex Analyst does not try.
 
 For transactional supply chain analytics see
-[`sap-bdc-supply-chain-360`](https://github.com/dfreriks-snow/sap-bdc-supply-chain-360).
+[`sap-bdc-supply-chain-360`](https://github.com/sfc-gh-dfreriks/sap-bdc-supply-chain-360).
 For a knowledge graph of actual supply-chain objects — suppliers, shipments,
 plants, risk — see
 [`supplychain_ontology_agent`](https://github.com/sfc-gh-tjia/supplychain_ontology_agent).

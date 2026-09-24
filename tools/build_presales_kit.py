@@ -40,8 +40,8 @@ from docx_kit import (
 REPO = Path(__file__).resolve().parent.parent
 KIT = Path.home() / "Documents" / "SAP" / "Supply_Chain_Ontology_Presales_Kit"
 
-PUBLIC_URL = "https://dfreriks-snow.github.io/supply-chain-ontology/"
-REPO_URL = "https://github.com/dfreriks-snow/supply-chain-ontology"
+PUBLIC_URL = "https://sfc-gh-dfreriks.github.io/supply-chain-ontology/"
+REPO_URL = "https://github.com/sfc-gh-dfreriks/supply-chain-ontology"
 DATE = "21 September 2026"
 
 
@@ -730,7 +730,7 @@ def build_setup(schema, network):
         ["Asset", "Where"],
         [
             ["SAP Supply Chain 360", "Production supply-chain analytics — separate app, separate listing"],
-            ["SAP BDC Ontology Explorer", "https://dfreriks-snow.github.io/sap-bdc-data-products/ — all 334 products"],
+            ["SAP BDC Ontology Explorer", "https://sfc-gh-dfreriks.github.io/sap-bdc-data-products/ — all 334 products"],
             ["This kit", "SAP Partnership Compass, Seismic"],
         ],
         widths=[1.9, 4.8],

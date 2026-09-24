@@ -33,7 +33,7 @@ LIGHT = RGBColor(0xEE, 0xF4, 0xF8)
 
 W, H = Inches(13.333), Inches(7.5)
 
-PUBLIC_URL = "https://dfreriks-snow.github.io/supply-chain-ontology/"
+PUBLIC_URL = "https://sfc-gh-dfreriks.github.io/supply-chain-ontology/"
 
 # timestamp -> (filename, crop height in source pixels or None for full)
 FRAMES = {

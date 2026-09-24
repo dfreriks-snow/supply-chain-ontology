@@ -7,7 +7,7 @@ Commands to run, refresh, and publish.
 ## First run
 
 ```bash
-git clone https://github.com/dfreriks-snow/supply-chain-ontology.git
+git clone https://github.com/sfc-gh-dfreriks/supply-chain-ontology.git
 cd supply-chain-ontology
 npm install
 npm run dev

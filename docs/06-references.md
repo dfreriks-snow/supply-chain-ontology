@@ -7,7 +7,7 @@ are public.
 
 ## Parent project
 
-### [`dfreriks-snow/sap-bdc-data-products`](https://github.com/dfreriks-snow/sap-bdc-data-products)
+### [`sfc-gh-dfreriks/sap-bdc-data-products`](https://github.com/sfc-gh-dfreriks/sap-bdc-data-products)
 
 > Interactive explorer for the SAP Business Data Cloud data product portfolio,
 > mined from the public SAP Business Accelerator Hub catalog.
@@ -72,7 +72,7 @@ Its stack was evaluated as an alternative foundation and not deployed — see
 
 ## Application and publishing patterns
 
-### [`dfreriks-snow/sap-bdc-supply-chain-360`](https://github.com/dfreriks-snow/sap-bdc-supply-chain-360)
+### [`sfc-gh-dfreriks/sap-bdc-supply-chain-360`](https://github.com/sfc-gh-dfreriks/sap-bdc-supply-chain-360)
 
 > A reference implementation showing how to turn SAP BDC Standard Data Products
 > into a live, AI-powered supply-chain analytics app on Snowflake — using a
@@ -95,7 +95,7 @@ ontology cannot answer. On the same Snowflake account it corresponds to
 `SAP_SUPPLY_CHAIN` and the `SAP_SUPPLY_CHAIN_360` semantic view (16 data
 products, 177 entities).
 
-### [`dfreriks-snow/supply-chain-360-public`](https://github.com/dfreriks-snow/supply-chain-360-public)
+### [`sfc-gh-dfreriks/supply-chain-360-public`](https://github.com/sfc-gh-dfreriks/supply-chain-360-public)
 
 > A static, no-login public build of the SAP BDC Supply Chain 360 dashboard,
 > deployed to GitHub Pages. Dashboards render from a point-in-time data snapshot

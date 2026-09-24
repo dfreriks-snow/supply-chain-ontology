@@ -10,8 +10,8 @@ Derived from the full BDC Ontology Explorer (334 products) and focused for
 supply chain. Foundation material: the ontology-agent pattern from
 [`sfc-gh-tjia/supplychain_ontology_agent`](https://github.com/sfc-gh-tjia/supplychain_ontology_agent),
 the app and publishing patterns from
-[`sap-bdc-supply-chain-360`](https://github.com/dfreriks-snow/sap-bdc-supply-chain-360)
-and [`supply-chain-360-public`](https://github.com/dfreriks-snow/supply-chain-360-public),
+[`sap-bdc-supply-chain-360`](https://github.com/sfc-gh-dfreriks/sap-bdc-supply-chain-360)
+and [`supply-chain-360-public`](https://github.com/sfc-gh-dfreriks/supply-chain-360-public),
 and the AI309 Summit narrative.
 
 ---
@@ -349,4 +349,3 @@ BAKE_HOST=http://localhost:3011 python3 tools/bake_static.py
 It emits 19 ontology snapshots — the schema, one per toggle position, and one per
 class. Class snapshots are driven off the schema rather than a hardcoded list, so
 a new class is picked up on the next bake.
-

@@ -37,8 +37,8 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 OUT = pathlib.Path.home() / "Documents" / "SAP" / "SAP_Supply_Chain_Ontology_Project_Guide.docx"
 DATE = date.today().strftime("%d %B %Y")
 
-REPO_URL = "https://github.com/dfreriks-snow/supply-chain-ontology"
-PUBLIC_URL = "https://dfreriks-snow.github.io/supply-chain-ontology/"
+REPO_URL = "https://github.com/sfc-gh-dfreriks/supply-chain-ontology"
+PUBLIC_URL = "https://sfc-gh-dfreriks.github.io/supply-chain-ontology/"
 CONTACT = "dave.freriks@snowflake.com"
 
 PAGES = [

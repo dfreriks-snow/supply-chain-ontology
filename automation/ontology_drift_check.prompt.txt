@@ -18,7 +18,7 @@ STEP 1 - read the live ontology from Snowflake. Run exactly these queries:
 STEP 2 - read the published copy. It is a public file, so no credentials and no
 clone are needed. Use bash:
 
-  curl -s https://raw.githubusercontent.com/dfreriks-snow/supply-chain-ontology/main/data/sc_ontology_schema.json
+  curl -s https://raw.githubusercontent.com/sfc-gh-dfreriks/supply-chain-ontology/main/data/sc_ontology_schema.json
 
 Parse it with python3. The fields to compare are:
   counts.classes, counts.abstract, counts.relations, counts.instances

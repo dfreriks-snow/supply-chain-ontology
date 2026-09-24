@@ -38,7 +38,7 @@ TOP, BOTTOM, LEFT, RIGHT = 1.32, 5.08, 0.40, 9.50
 FULLW = RIGHT - LEFT
 
 CONTACT = "dave.freriks@snowflake.com"
-PUBLIC_URL = "dfreriks-snow.github.io/supply-chain-ontology"
+PUBLIC_URL = "sfc-gh-dfreriks.github.io/supply-chain-ontology"
 
 
 def load():

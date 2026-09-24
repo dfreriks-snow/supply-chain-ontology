@@ -25,8 +25,8 @@ from docx_kit import (  # noqa: E402
 
 OUT = pathlib.Path.home() / "Documents" / "SAP" / "Supply_Chain_Ontology_Management_Summary.docx"
 
-REPO = "https://github.com/dfreriks-snow/supply-chain-ontology"
-SITE = "https://dfreriks-snow.github.io/supply-chain-ontology/"
+REPO = "https://github.com/sfc-gh-dfreriks/supply-chain-ontology"
+SITE = "https://sfc-gh-dfreriks.github.io/supply-chain-ontology/"
 
 
 # ------------------------------------------------------------------- the report

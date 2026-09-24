@@ -204,8 +204,8 @@ def end_card(path):
     img = Image.new("RGBA", (W, VH), NAVY + (255,))
     d = ImageDraw.Draw(img)
     d.text((90, 330), "Explore it yourself", font=_font(44, True), fill=WHITE)
-    rows = [("Live application", "dfreriks-snow.github.io/supply-chain-ontology"),
-            ("Source and documentation", "github.com/dfreriks-snow/supply-chain-ontology"),
+    rows = [("Live application", "sfc-gh-dfreriks.github.io/supply-chain-ontology"),
+            ("Source and documentation", "github.com/sfc-gh-dfreriks/supply-chain-ontology"),
             ("Built on", "SAP data in Snowflake · Cortex AI · no pipeline, no copies")]
     y = 420
     for k, v in rows:
